@@ -497,16 +497,28 @@ async function abgleichen(){
     await schreibeDatei();
   }
 }
+let verbindeLaeuft = false;
 async function dateiVerbinden(){
+  if(verbindeLaeuft || !datei || dateiVerbunden) return;
+  verbindeLaeuft = true;
   try{
-    let p = await datei.queryPermission({mode:"readwrite"});
-    if(p!=="granted") p = await datei.requestPermission({mode:"readwrite"});
-    if(p!=="granted"){ toast("Kein Zugriff auf die Datei erlaubt."); return; }
+    // direkt fragen (der Browser erlaubt das nur unmittelbar nach einem Klick)
+    const p = await datei.requestPermission({mode:"readwrite"});
+    if(p!=="granted"){ toast("Kein Zugriff auf die Datei erlaubt – gespeichert wird vorerst nur im Browser."); return; }
     dateiVerbunden = true; dateiFehler = "";
     await abgleichen();
+    toast("Speicherdatei verbunden – es wird wieder automatisch gespeichert.");
   }catch(e){ console.error(e); dateiFehler="Die Datei konnte nicht geöffnet werden (verschoben oder gelöscht?)."; dateiVerbunden=false; }
-  renderSpeicher();
+  finally{ verbindeLaeuft = false; renderSpeicher(); }
 }
+// Nach einem Browser-Neustart beim ersten Klick irgendwo im Programm von selbst nach der Erlaubnis fragen
+let erlaubnisGefragt = false;
+document.addEventListener("click", e=>{
+  if(erlaubnisGefragt || !fsOk || !datei || dateiVerbunden) return;
+  if(e.target.closest("#speicher, #modal")) return;      // dort hat der Klick eine eigene Aufgabe (z. B. andere Datei wählen)
+  erlaubnisGefragt = true;
+  dateiVerbinden();
+}, true);
 const jsonTyp = [{description:"Sitzplaner-Daten", accept:{"application/json":[".json"]}}];
 async function neueDatei(){
   try{
@@ -595,7 +607,7 @@ function renderSpeicher(){
       h += `<div class="st ok">✔ Wird automatisch gespeichert in<br><b>${esc(datei.name)}</b></div>
             <button data-a="datei-oeffnen">Andere Speicherdatei wählen</button>`;
     } else if(datei){
-      h += `<div class="st warn">${dateiFehler?esc(dateiFehler):"Die Speicherdatei ist noch nicht verbunden."}</div>
+      h += `<div class="st warn">${dateiFehler?esc(dateiFehler):(erlaubnisGefragt?"Die Speicherdatei ist nicht verbunden. Gespeichert wird vorerst nur im Browser.":"Beim ersten Klick fragt der Browser, ob das Programm in die Speicherdatei schreiben darf. Bitte „Zulassen“ wählen.")}</div>
             <button class="hl" data-a="datei-verbinden">Mit „${esc(datei.name)}“ verbinden</button>
             <button data-a="datei-oeffnen">Andere Datei öffnen</button>`;
     } else {
