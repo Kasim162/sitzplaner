@@ -169,6 +169,45 @@
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1f2a3a;color:#fff;padding:9px 16px;border-radius:9px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:50}
   .toast.on{opacity:1}
 
+  /* ---------- Schlichte Bedienelemente ---------- */
+  .abstand{flex:1}
+  button.flach{border-color:transparent;background:transparent}
+  button.flach:hover{background:#eef0f3}
+  button.klein{font-size:13px;padding:4px 8px;color:var(--accent)}
+  button.klein.an{background:var(--accent-soft)}
+  .hint.leise{font-size:12px;color:#8a93a3;margin-top:12px}
+  .zahl{color:#8a93a3;font-weight:400;margin-left:4px}
+  .toolbar.leiste{align-items:center;gap:6px;padding:8px 14px;flex-wrap:wrap}
+  .titelfeld{font-size:17px;font-weight:600;border-color:transparent;background:transparent;width:220px;min-width:100px;padding:5px 8px}
+  .titelfeld:hover{border-color:var(--line)}
+  .titelfeld:focus{border-color:var(--accent);background:#fff;outline:none}
+  .leise-feld{border-color:transparent;background:transparent;color:var(--muted)}
+  .leise-feld:hover,.leise-feld:focus{border-color:var(--line);background:#fff}
+  .speicherstand{font-size:12px;color:var(--ok);white-space:nowrap}
+  .modus{display:flex;background:#eef0f3;border-radius:9px;padding:3px;gap:3px}
+  details.mehr{position:relative}
+  details.mehr>summary{list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:5px 12px;background:#fff;font-weight:700;letter-spacing:1px;user-select:none}
+  details.mehr>summary::-webkit-details-marker{display:none}
+  details.mehr[open]>summary{background:#eef0f3}
+  .mehr-menue{position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.14);padding:6px;min-width:250px;z-index:25;display:flex;flex-direction:column;gap:2px}
+  .mehr-menue button{text-align:left;border:0;background:transparent;width:100%;padding:8px 10px}
+  .mehr-menue button:hover{background:#f0f2f5}
+  .mehr-menue label{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;color:var(--muted);padding:4px 10px}
+  .mehr-menue .trenner{height:1px;background:var(--line);margin:5px 4px}
+  details.neuplan{margin-top:14px}
+  details.neuplan>summary{list-style:none;display:inline-block;color:var(--accent);font-weight:600;cursor:pointer;padding:6px 0}
+  details.neuplan>summary::-webkit-details-marker{display:none}
+  details.klein{margin-top:10px;font-size:13px}
+  details.klein>summary{color:var(--accent)}
+  details.inline{margin-top:0}
+  .planitem{cursor:pointer}
+  .planitem:hover{border-color:var(--accent)}
+  ol.schritte{line-height:1.9;padding-left:20px;margin:16px 0 8px}
+  .speicher details.sich{margin-top:8px}
+  .speicher details.sich>summary{color:#9fb0c8;cursor:pointer;font-size:12px}
+  .speicher .st{margin-bottom:4px}
+
   /* Blatt passend verkleinern (per transform, funktioniert auch auf dem iPad) */
   .sheetsizer{margin:0 auto;position:relative}
   .sheetsizer .sheet{margin:0;transform-origin:0 0;position:absolute;left:0;top:0}
@@ -212,6 +251,9 @@
     .pool .chip{width:auto;margin:0}
     .stulist{columns:1}
     .toolbar{padding:8px 12px;position:static}
+    .pal-grid{grid-template-columns:repeat(5,1fr)}
+    .titelfeld{width:150px}
+    .speicherstand{display:none}
   }
   /* Finger statt Maus: größere Knöpfe, keine Vergrößerung beim Tippen in Felder */
   @media (pointer:coarse){
@@ -640,36 +682,32 @@ function renderSidebar(){
     : `<div class="hint" style="color:#9fb0c8;padding:6px 10px">Noch keine Klasse. Unten eine anlegen.</div>`;
 }
 
+// Unten links: eine Zeile Stand + höchstens ein wichtiger Knopf, alles Weitere zum Aufklappen
 function renderSpeicher(){
-  let h = "";
-  if(fsOk){
-    if(datei && dateiVerbunden){
-      h += `<div class="st ok">✔ Wird automatisch gespeichert in<br><b>${esc(datei.name)}</b></div>
-            <button data-a="datei-oeffnen">Andere Speicherdatei wählen</button>`;
-    } else if(datei){
-      h += `<div class="st warn">${dateiFehler?esc(dateiFehler):(erlaubnisGefragt?"Die Speicherdatei ist nicht verbunden. Gespeichert wird vorerst nur im Browser.":"Beim ersten Klick fragt der Browser, ob das Programm in die Speicherdatei schreiben darf. Bitte „Zulassen“ wählen.")}</div>
-            <button class="hl" data-a="datei-verbinden">Mit „${esc(datei.name)}“ verbinden</button>
-            <button data-a="datei-oeffnen">Andere Datei öffnen</button>`;
-    } else {
-      h += `<div class="st warn">Noch keine Speicherdatei. Die Daten liegen bisher nur im Browser.</div>
-            <button class="hl" data-a="datei-neu">Speicherdatei anlegen</button>
-            <button data-a="datei-oeffnen">Vorhandene Datei öffnen</button>`;
-    }
-  } else {
-    h += `<div class="st">Die Daten bleiben auf diesem Gerät gespeichert. Zum Übertragen auf ein anderes Gerät: hier eine Sicherung machen und dort „Sicherung laden“.</div>`;
-  }
-  // Erinnerung an die letzte Sicherung (je Gerät)
   const letzte = localStorage.getItem(LS_SICHERUNG);
   const tage = letzte ? Math.floor((Date.now()-new Date(letzte))/864e5) : null;
-  if(!(fsOk && datei && dateiVerbunden) && S.klassen.length){
-    h += letzte
-      ? `<div class="st ${tage>14?"warn":""}">Letzte Sicherung: ${datum(letzte)}${tage>14?` – vor ${tage} Tagen!`:""}</div>`
-      : `<div class="st warn">Noch keine Sicherung gemacht.</div>`;
+  const sicherungFaellig = S.klassen.length && (!letzte || tage>14);
+  const sicherungsKnopf = teilenOk ? `<button data-a="sicherung-teilen">Sicherung machen …</button>` : `<button data-a="sicherung-runter">Sicherung herunterladen</button>`;
+  let stand = "", haupt = "", weitere = "";
+  if(fsOk && datei && dateiVerbunden){
+    stand = `<div class="st ok" title="Jede Änderung wird automatisch in ${esc(datei.name)} gespeichert">✓ Speichert in ${esc(datei.name)}</div>`;
+    weitere = `<button data-a="datei-oeffnen">Andere Speicherdatei …</button>`;
+  } else if(fsOk && datei){
+    stand = `<div class="st warn" title="${esc(dateiFehler||"Nach einem Browser-Neustart muss das Schreiben in die Datei einmal erlaubt werden.")}">Speicherdatei nicht verbunden</div>`;
+    haupt = `<button class="hl" data-a="datei-verbinden">Verbinden</button>`;
+    weitere = `<button data-a="datei-oeffnen">Andere Datei öffnen …</button>`;
+  } else if(fsOk){
+    stand = `<div class="st warn">Nur im Browser gespeichert</div>`;
+    haupt = `<button class="hl" data-a="datei-neu">Speicherdatei anlegen</button>`;
+    weitere = `<button data-a="datei-oeffnen">Vorhandene Datei öffnen …</button>`;
+  } else {
+    stand = `<div class="st ${sicherungFaellig?"warn":""}">${letzte ? `Letzte Sicherung: ${datum(letzte)}` : (S.klassen.length ? "Noch keine Sicherung" : "")}</div>`;
+    if(sicherungFaellig) haupt = sicherungsKnopf.replace("<button ", `<button class="hl" `);
   }
-  h += teilenOk ? `<button class="${!letzte||tage>14?"hl":""}" data-a="sicherung-teilen">Sicherung teilen / senden …</button>` : "";
-  h += `<button data-a="sicherung-runter">Sicherung herunterladen</button>
-        <button data-a="sicherung-laden">Sicherung laden</button>`;
-  $("#speicher").innerHTML = h;
+  if(!(haupt.includes("sicherung-"))) weitere += sicherungsKnopf;
+  if(teilenOk && !weitere.includes("sicherung-runter")) weitere += `<button data-a="sicherung-runter">Sicherung herunterladen</button>`;
+  weitere += `<button data-a="sicherung-laden">Sicherung laden …</button>`;
+  $("#speicher").innerHTML = `${stand}${haupt}<details class="sich"><summary>Sicherung</summary>${weitere}</details>`;
 }
 
 function renderMain(){
@@ -685,21 +723,12 @@ function htmlStart(){
   return `<div class="page welcome">
     <button class="menuknopf" data-a="menu" style="margin-bottom:12px">☰ Klassen</button>
     <h1>Sitzplaner</h1>
-    <p class="muted">Sitzpläne für deine Klassen anlegen, ändern und speichern – mit den beiden Vorlagen „Klassenraum“ und „Physikraum“.</p>
-    <div class="card">
-      <h2>So geht's</h2>
-      <ol>
-        <li>Links unten eine <b>Klasse anlegen</b> (z. B. „7d“).</li>
-        <li>In der Klasse die <b>Schüler eintragen</b> – einzeln oder eine ganze Liste auf einmal einfügen.</li>
-        <li>Einen <b>Sitzplan anlegen</b>: Vorlage „Klassenraum“ oder „Physikraum“ wählen.</li>
-        <li>Namen auf die Plätze <b>ziehen</b> (oder erst Namen, dann Platz anklicken). Oder „Zufällig verteilen“.</li>
-        <li><b>Drucken / PDF</b> – das Blatt sieht aus wie deine Word-Vorlage (DIN A4 quer).</li>
-      </ol>
-      <p class="hint">Alles wird sofort gespeichert. Damit die Daten auch sicher auf der Festplatte liegen, links unten einmal
-      <b>„Speicherdatei anlegen“</b> wählen und sie am besten hier im Ordner <i>Sitzplan-Programm</i> ablegen.
-      Nach einem Neustart reicht dann ein Klick auf „verbinden“.</p>
-    </div>
-    ${S.klassen.length?`<p class="muted" style="margin-top:16px">${S.klassen.length} Klasse(n) gespeichert${S.gespeichert?`, zuletzt geändert am ${datum(S.gespeichert)}`:""}.</p>`:""}
+    <ol class="schritte">
+      <li>Links eine <b>Klasse anlegen</b></li>
+      <li><b>Schüler</b> eintragen oder Liste einlesen</li>
+      <li><b>Sitzplan</b> anlegen und Namen auf die Plätze ziehen</li>
+    </ol>
+    <p class="hint">Alles wird automatisch gespeichert.</p>
   </div>`;
 }
 
@@ -708,31 +737,28 @@ function htmlKlasse(k){
   const schueler = sortSchueler(k.schueler);
   return `<div class="page">
     <div class="head">
-      <button class="menuknopf" data-a="menu">☰</button>
+      <button class="menuknopf flach" data-a="menu">☰</button>
       <h1>Klasse ${esc(k.name)}</h1>
-      <label class="f">Schuljahr<input data-f="schuljahr" value="${esc(k.schuljahr)}" placeholder="${aktuellesSchuljahr()}" style="width:110px"></label>
-      <div class="actions">
-        <button data-a="klasse-umbenennen">Umbenennen</button>
-        <button class="danger" data-a="klasse-loeschen">Klasse löschen</button>
-      </div>
+      <input class="leise-feld" data-f="schuljahr" value="${esc(k.schuljahr)}" placeholder="${aktuellesSchuljahr()}" title="Schuljahr" style="width:90px">
+      <span class="abstand"></span>
+      <details class="mehr"><summary title="Klasse umbenennen oder löschen">⋯</summary>
+        <div class="mehr-menue">
+          <button data-a="klasse-umbenennen">Klasse umbenennen</button>
+          <button class="danger" data-a="klasse-loeschen">Klasse löschen</button>
+        </div></details>
     </div>
     <div class="cols">
       <section class="card">
-        <h2>Gespeicherte Sitzpläne (${k.plaene.length})</h2>
-        ${plaene.length ? `<p class="hint" style="margin-top:-6px">Zum Weiterarbeiten auf <b>„Öffnen“</b> klicken – deine Sitzordnung ist dort gespeichert.</p>` : ""}
+        <h2>Sitzpläne</h2>
         ${plaene.length ? plaene.map(p=>{
           const n = Object.keys(p.sitze).length;
-          const zeit = p.geaendert ? new Date(p.geaendert).toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"}) : "";
-          return `<div class="planitem">
-            <div style="cursor:pointer" data-a="plan-oeffnen" data-id="${p.id}"><div class="t">${esc(p.titel)}</div>
-              <div class="m">${planArt(p)}${p.raum && mitRaum(p)?` · Raum ${esc(p.raum)}`:""} · ${n} von ${k.schueler.length} sitzen · geändert ${zeit}</div></div>
-            <div class="b">
-              <button class="primary small" data-a="plan-oeffnen" data-id="${p.id}">Öffnen</button>
-              <button class="small" data-a="plan-kopie" data-id="${p.id}" title="Kopie anlegen">Kopie</button>
-              <button class="small danger" data-a="plan-loeschen" data-id="${p.id}" title="Löschen">✕</button>
-            </div></div>`;}).join("") : `<p class="hint">Noch kein Sitzplan.</p>`}
-        <h3 style="margin-top:18px">Neuen Sitzplan anlegen</h3>
-        <form id="neuplan" class="row" style="align-items:flex-end">
+          const zeit = p.geaendert ? new Date(p.geaendert).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
+          return `<div class="planitem" data-a="plan-oeffnen" data-id="${p.id}">
+            <div><div class="t">${esc(p.titel)}</div>
+              <div class="m">${n} von ${k.schueler.length} sitzen · ${zeit}</div></div>
+            <div class="b"><button class="small" data-a="plan-oeffnen" data-id="${p.id}">Öffnen</button></div></div>`;}).join("") : `<p class="hint">Noch kein Sitzplan.</p>`}
+        <details class="neuplan" ${plaene.length?"":"open"}><summary>+ Neuer Sitzplan</summary>
+        <form id="neuplan" class="row" style="align-items:flex-end;margin-top:10px">
           <label class="f">Vorlage<select name="typ">
             <optgroup label="Feste Vorlagen">
               <option value="klassenraum">Klassenraum (4 Reihen, 32 Plätze)</option>
@@ -742,26 +768,26 @@ function htmlKlasse(k){
               <option value="frei-gruppen">… Gruppentischen (8 × 4 Plätze)</option>
               <option value="frei-physik">… Physikraum</option>
               <option value="frei-leer">… leerer Fläche</option></optgroup></select></label>
-          <label class="f">Name (frei wählbar)<input name="titel" placeholder="z. B. Mathe ab Herbst" style="width:170px"></label>
-          <label class="f">Raum<input name="raum" placeholder="z. B. 112" style="width:80px"></label>
-          <button class="primary" type="submit">Sitzplan anlegen</button>
-        </form>
+          <label class="f">Name<input name="titel" placeholder="z. B. Mathe" style="width:150px"></label>
+          <input type="hidden" name="raum" value="">
+          <button class="primary" type="submit">Anlegen</button>
+        </form></details>
       </section>
       <section class="card">
-        <h2>Schüler (${k.schueler.length})</h2>
-        <button class="primary" data-a="import" style="width:100%;padding:10px;margin-bottom:12px">📷 Klassenliste einlesen – aus Foto oder Datei</button>
+        <h2>Schüler <span class="zahl">${k.schueler.length}</span></h2>
         <form id="neuschueler" class="row">
           <input name="name" placeholder="Vorname Nachname" style="flex:1" autocomplete="off">
-          <button class="primary" type="submit">Hinzufügen</button>
+          <button type="submit" title="Hinzufügen">+</button>
         </form>
-        <details>
-          <summary>Mehrere auf einmal einfügen</summary>
-          <form id="neuliste" style="margin-top:8px">
-            <textarea name="liste" placeholder="Ein Name pro Zeile, z. B.&#10;Anna Beispiel&#10;Beispiel, Ben  (wird zu „Ben Beispiel“)"></textarea>
-            <div class="row" style="margin-top:6px"><button class="primary" type="submit">Alle hinzufügen</button>
-            <span class="hint">Doppelte Namen werden übersprungen.</span></div>
-          </form>
-        </details>
+        <div class="row" style="margin-top:8px">
+          <button class="flach klein" data-a="import">📷 Liste einlesen</button>
+          <details class="klein inline"><summary>Mehrere einfügen</summary>
+            <form id="neuliste" style="margin-top:8px">
+              <textarea name="liste" placeholder="Ein Name pro Zeile"></textarea>
+              <button class="primary" type="submit" style="margin-top:6px">Alle hinzufügen</button>
+            </form>
+          </details>
+        </div>
         ${schueler.length ? `<ul class="stulist">${schueler.map(s=>`<li><span>${esc(s.name)}</span>
           <button data-a="schueler-umbenennen" data-id="${s.id}" title="Namen ändern">✎</button>
           <button class="x" data-a="schueler-entfernen" data-id="${s.id}" title="Entfernen">✕</button></li>`).join("")}</ul>`
@@ -840,56 +866,47 @@ function htmlPlan(k,p){
   const frei = sortSchueler(k.schueler.filter(s=>!sitzend.has(s.id)));
   const plaetze = planPlaetze(p).length;
   const frei_ = istFrei(p), edit = frei_ && freiModus==="anordnen";
-  return `<div class="toolbar">
-      <div class="grp"><button class="menuknopf" data-a="menu">☰</button><button data-a="zurueck">← Klasse ${esc(k.name)}</button></div>
-      <div class="sep"></div>
-      ${frei_?`<div class="grp modus">
-        <button class="${edit?"on":""}" data-a="modus" data-id="anordnen">✋ Tische anordnen</button>
-        <button class="${edit?"":"on"}" data-a="modus" data-id="setzen">👤 Schüler setzen</button>
-      </div><div class="sep"></div>`:""}
-      <div class="grp">
-        <label class="f">Name des Sitzplans<input data-f="plan-titel" value="${esc(p.titel)}" style="width:170px"></label>
-        ${mitRaum(p)?`<label class="f">Raum<input data-f="plan-raum" value="${esc(p.raum)}" style="width:75px"></label>`:""}
-        <label class="f">Namen zeigen<select data-f="plan-anzeige">
-          <option value="voll" ${p.anzeige==="voll"?"selected":""}>Vor- und Nachname</option>
-          <option value="vornameN" ${p.anzeige==="vornameN"?"selected":""}>Vorname + N.</option>
-          <option value="vorname" ${p.anzeige==="vorname"?"selected":""}>Nur Vorname</option></select></label>
-        ${frei_?"":`<label class="f">Pult<select data-f="plan-pult">
-          <option value="unten" ${!p.pultOben?"selected":""}>unten (wie Vorlage)</option>
-          <option value="oben" ${p.pultOben?"selected":""}>oben (Blick von hinten)</option></select></label>
-        <button data-a="umwandeln" title="Die Tische dieses Plans frei verschieben – die Sitzordnung bleibt">✋ Tische frei verschieben</button>`}
-      </div>
-      <div class="sep"></div>
-      <div class="grp">
-        <button data-a="zufall-auffuellen" title="Nur die Schüler ohne Platz zufällig auf freie Plätze setzen">Zufällig auffüllen</button>
-        <button data-a="zufall-alle" title="Alle Schüler neu zufällig verteilen">Alle neu mischen</button>
-        <button data-a="alle-leeren">Alle Plätze leeren</button>
-        <button data-a="rueckgaengig" ${undo.length?"":"disabled"} title="Strg+Z">↶ Rückgängig</button>
-      </div>
-      <div class="sep"></div>
-      <div class="grp">
-        <button class="primary" data-a="speichern" title="Sitzplan jetzt speichern">💾 Speichern</button>
-        <span class="hint" id="speicherstand" style="align-self:center;color:var(--ok)"></span>
-        <button data-a="drucken">Drucken / PDF</button>
-        <button data-a="plan-kopie" data-id="${p.id}">Kopie anlegen</button>
-        <button class="danger" data-a="plan-loeschen" data-id="${p.id}">Löschen</button>
-      </div>
+  const opt = (wert, aktuell, text) => `<option value="${wert}" ${wert===aktuell?"selected":""}>${text}</option>`;
+  return `<div class="toolbar leiste">
+      <button class="menuknopf flach" data-a="menu" title="Klassen">☰</button>
+      <button class="flach" data-a="zurueck" title="Zurück zur Klasse">← ${esc(k.name)}</button>
+      <input class="titelfeld" data-f="plan-titel" value="${esc(p.titel)}" title="Name des Sitzplans – zum Ändern anklicken">
+      ${frei_?`<div class="modus">
+        <button class="${edit?"on":""}" data-a="modus" data-id="anordnen">Tische</button>
+        <button class="${edit?"":"on"}" data-a="modus" data-id="setzen">Schüler</button></div>`:""}
+      <span class="abstand"></span>
+      <span class="speicherstand" id="speicherstand"></span>
+      <button class="flach" data-a="rueckgaengig" ${undo.length?"":"disabled"} title="Rückgängig (Strg+Z)">↶</button>
+      <button class="primary" data-a="speichern" title="Sitzplan jetzt speichern">Speichern</button>
+      <button data-a="drucken" title="Drucken oder als PDF speichern">Drucken</button>
+      <details class="mehr"><summary title="Weitere Einstellungen">⋯</summary>
+        <div class="mehr-menue">
+          <label>Namen ${`<select data-f="plan-anzeige">${opt("voll",p.anzeige,"Vor- und Nachname")}${opt("vornameN",p.anzeige,"Vorname + N.")}${opt("vorname",p.anzeige,"Nur Vorname")}</select>`}</label>
+          ${mitRaum(p)?`<label>Raum <input data-f="plan-raum" value="${esc(p.raum)}" style="width:110px"></label>`:""}
+          ${frei_?"":`<label>Pult <select data-f="plan-pult">${opt("unten",p.pultOben?"oben":"unten","unten")}${opt("oben",p.pultOben?"oben":"unten","oben (Blick von hinten)")}</select></label>`}
+          <div class="trenner"></div>
+          <button data-a="zufall-alle">Alle neu mischen</button>
+          <button data-a="alle-leeren">Alle Plätze leeren</button>
+          ${frei_?"":`<button data-a="umwandeln">Tische frei verschieben …</button>`}
+          <div class="trenner"></div>
+          <button data-a="plan-kopie" data-id="${p.id}">Kopie anlegen</button>
+          <button class="danger" data-a="plan-loeschen" data-id="${p.id}">Sitzplan löschen</button>
+        </div>
+      </details>
     </div>
     <div class="planbody">
       <div class="sheetwrap" id="sheetwrap"><div class="sheetsizer" id="sheetsizer">${htmlBlatt(k,p)}</div></div>
       ${edit ? htmlTischPalette(p) : `<aside class="pool" id="pool">
         ${sel && sel.typ==="platz" && p.sitze[sel.id] ? `<div class="platzwahl">
           <b>${esc(anzeigeName(k,p,p.sitze[sel.id]))}</b>
-          <div class="row"><button data-a="platz-leeren" data-id="${sel.id}">Platz leeren</button><button data-a="auswahl-weg">Abbrechen</button></div>
-          <p class="hint" style="margin:6px 0 0">Tippe einen anderen Platz an, um zu tauschen oder umzusetzen.</p></div>` : ""}
-        <h3>Noch ohne Platz (${frei.length})</h3>
+          <div class="row"><button data-a="platz-leeren" data-id="${sel.id}">Platz leeren</button><button class="flach" data-a="auswahl-weg">Abbrechen</button></div></div>` : ""}
+        <h3>Ohne Platz <span class="zahl">${frei.length}</span></h3>
         <div class="chips">${frei.length ? frei.map(s=>`<button class="chip ${sel&&sel.typ==="schueler"&&sel.id===s.id?"sel":""}" data-drag="schueler:${s.id}" data-a="chip" data-id="${s.id}">${esc(s.name)}</button>`).join("")
-          : `<p class="hint">${k.schueler.length?"Alle Schüler haben einen Platz.":"Diese Klasse hat noch keine Schüler."}</p>`}</div>
+          : `<p class="hint">${k.schueler.length?"Alle haben einen Platz.":"Noch keine Schüler."}</p>`}</div>
+        ${frei.length?`<button class="flach klein" data-a="zufall-auffuellen" title="Die Schüler ohne Platz zufällig verteilen">Zufällig verteilen</button>`:""}
         ${!k.schueler.length?`<button class="primary" data-a="import" style="width:100%">📷 Klassenliste einlesen</button>`:""}
-        <form id="poolneu" class="addpool"><input name="name" placeholder="Neuer Schüler" autocomplete="off"><button type="submit">+</button></form>
-        <p class="hint" style="margin-top:12px">${Object.keys(p.sitze).length} von ${plaetze} Plätzen belegt.</p>
-        <p class="hint"><b>So geht's:</b> Namen auf einen Platz ziehen – oder erst den Namen, dann den Platz antippen.
-        Platz auf Platz ziehen tauscht die beiden. Zum Leeren einen Platz antippen und „Platz leeren“ wählen – oder den Namen hierher zurückziehen.</p>
+        <form id="poolneu" class="addpool"><input name="name" placeholder="Schüler hinzufügen" autocomplete="off"><button type="submit">+</button></form>
+        <p class="hint leise">${Object.keys(p.sitze).length} von ${plaetze} Plätzen belegt · Namen ziehen oder antippen</p>
       </aside>`}
     </div>`;
 }
@@ -898,37 +915,34 @@ function htmlTischPalette(p){
   const n = [...selTische].filter(id=>id!=="PULT").length;
   const plaetze = planPlaetze(p).length;
   return `<aside class="pool palette">
-    <h3>Tische hinzufügen</h3>
+    <h3>Tisch hinzufügen</h3>
     <div class="pal-grid">
-      <button data-a="tisch-neu" data-id="1"><span class="ico i1"></span>Einzeltisch</button>
-      <button data-a="tisch-neu" data-id="2"><span class="ico i2"></span>Zweiertisch</button>
-      <button data-a="tisch-neu" data-id="3"><span class="ico i3"></span>Dreiertisch</button>
+      <button data-a="tisch-neu" data-id="1"><span class="ico i1"></span>1er</button>
+      <button data-a="tisch-neu" data-id="2"><span class="ico i2"></span>2er</button>
+      <button data-a="tisch-neu" data-id="3"><span class="ico i3"></span>3er</button>
       <button data-a="tisch-neu" data-id="g4"><span class="ico g4"></span>Gruppe 4</button>
       <button data-a="tisch-neu" data-id="g6"><span class="ico g6"></span>Gruppe 6</button>
     </div>
-    <h3 style="margin-top:16px">Auswahl ${n?`(${n} Tisch${n>1?"e":""})`:""}</h3>
-    ${n ? `<div class="row">
-        <button data-a="tisch-drehen" title="Taste R">⟳ Drehen</button>
-        <button data-a="tisch-kopie" title="Strg+D">⧉ Kopie</button>
-        <button class="danger" data-a="tisch-weg" title="Entf-Taste">✕ Löschen</button></div>
+    ${n ? `<h3 style="margin-top:16px">${n} Tisch${n>1?"e":""} ausgewählt</h3>
+      <div class="row">
+        <button data-a="tisch-drehen" title="Drehen (Taste R)">⟳ Drehen</button>
+        <button data-a="tisch-kopie" title="Kopie (Strg+D)">⧉ Kopie</button>
+        <button class="danger" data-a="tisch-weg" title="Löschen (Entf)">✕</button></div>
       <div class="pal-pfeile" title="Fein verschieben">
         <span></span><button data-a="tisch-schieben" data-id="o">▲</button><span></span>
         <button data-a="tisch-schieben" data-id="l">◀</button><button data-a="tisch-schieben" data-id="u">▼</button><button data-a="tisch-schieben" data-id="r">▶</button>
       </div>`
-      : `<p class="hint">Antippen wählt einen Tisch aus.</p>`}
-    <button class="${mehrfach?"an":""}" data-a="mehrfach" style="width:100%;margin-top:10px">${mehrfach?"✓ Mehrere auswählen (an)":"Mehrere auswählen"}</button>
-    <p class="hint" style="margin-top:6px">Damit tippst du mehrere Tische an und schiebst sie zusammen. Am Rechner geht das auch mit der Umschalt-Taste.</p>
-    <p class="hint" style="margin-top:14px"><b>So geht's:</b> Tische mit Maus oder Finger ziehen. Sie rasten an anderen Tischen ein – so entstehen Gruppentische.
-    Auch das Pult lässt sich verschieben.</p>
-    <p class="hint">${p.tische.length} Tische, ${plaetze} Plätze.</p>
-    <h3 style="margin-top:16px">Neu beginnen mit …</h3>
-    <div class="row">
-      <button class="small" data-a="tisch-start" data-id="reihen">Reihen</button>
-      <button class="small" data-a="tisch-start" data-id="gruppen">Gruppen</button>
-      <button class="small" data-a="tisch-start" data-id="physik">Physikraum</button>
-      <button class="small" data-a="tisch-start" data-id="leer">Leer</button>
-    </div>
-    <button class="primary" data-a="modus" data-id="setzen" style="width:100%;margin-top:18px">Fertig – Schüler setzen →</button>
+      : `<p class="hint leise" style="margin-top:14px">Tische ziehen – sie rasten aneinander ein.</p>`}
+    <button class="flach klein ${mehrfach?"an":""}" data-a="mehrfach" title="Mehrere Tische antippen und zusammen verschieben">${mehrfach?"✓ ":""}Mehrere auswählen</button>
+    <details class="klein"><summary>Neu beginnen …</summary>
+      <div class="row" style="margin-top:6px">
+        <button class="small" data-a="tisch-start" data-id="reihen">Reihen</button>
+        <button class="small" data-a="tisch-start" data-id="gruppen">Gruppen</button>
+        <button class="small" data-a="tisch-start" data-id="physik">Physikraum</button>
+        <button class="small" data-a="tisch-start" data-id="leer">Leer</button>
+      </div></details>
+    <p class="hint leise">${p.tische.length} Tische · ${plaetze} Plätze</p>
+    <button class="primary" data-a="modus" data-id="setzen" style="width:100%;margin-top:10px">Fertig</button>
   </aside>`;
 }
 
@@ -1165,6 +1179,10 @@ function verschiebeAuswahl(dx, dy){
 }
 
 /* ---------- Klicks ---------- */
+// Offene „⋯“-Menüs schließen, sobald man daneben klickt
+document.addEventListener("click", e=>{
+  document.querySelectorAll("details.mehr[open]").forEach(d=>{ if(!d.contains(e.target)) d.open = false; });
+}, true);
 document.addEventListener("click", e=>{
   if(Date.now() < klickSperre) return;      // direkt nach dem Ziehen keinen zusätzlichen Klick auslösen
   const seatEl = e.target.closest(".seat");
