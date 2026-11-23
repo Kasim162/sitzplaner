@@ -1,0 +1,4 @@
+# Niemals Schülerdaten hochladen
+sitzplaene-*.json
+*.docx
+*.pdf

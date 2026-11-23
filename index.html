@@ -1,0 +1,1742 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f2a3a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sitzplaner">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Sitzplaner</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#fff; --line:#d9dce1; --text:#1f2328; --muted:#667085;
+    --accent:#2f6fde; --accent-soft:#e8f0fd; --danger:#c62f2f; --ok:#1d7a46; --warn:#a15c00;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--text);background:var(--bg);font-size:15px}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 11px;color:var(--text)}
+  button:hover{background:#f0f2f5}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(.95)}
+  button.danger{color:var(--danger)}
+  button.small{padding:3px 8px;font-size:13px}
+  button:disabled{opacity:.45;cursor:default}
+  input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:#fff;color:var(--text)}
+  textarea{width:100%;min-height:110px;resize:vertical}
+  label.f{display:inline-flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+  label.f input,label.f select{font-size:14px;color:var(--text)}
+  h1{font-size:24px;margin:0}
+  h2{font-size:17px;margin:0 0 12px}
+  h3{font-size:15px;margin:0 0 8px}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+  #app{display:flex;height:100vh;height:100dvh}
+  #sidebar{width:250px;flex:none;background:#1f2a3a;color:#e7ebf2;display:flex;flex-direction:column}
+  #sidebar .brand{padding:16px 16px 10px;font-size:19px;font-weight:600}
+  #sidebar .brand small{display:block;font-size:12px;font-weight:400;color:#9fb0c8}
+  #sidebar .sec{padding:6px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9fb0c8}
+  #klassenliste{flex:1;overflow:auto;padding:0 8px}
+  .kl{display:block;width:100%;text-align:left;background:transparent;border:0;color:#e7ebf2;padding:8px 10px;border-radius:7px;margin:1px 0}
+  .kl:hover{background:#2c3a50}
+  .kl.active{background:#3b5480}
+  .kl small{color:#9fb0c8;margin-left:4px}
+  .newk{padding:8px 16px;display:flex;gap:6px}
+  .newk input{flex:1;min-width:0;background:#2c3a50;border-color:#3d4d66;color:#fff}
+  .newk input::placeholder{color:#9fb0c8}
+  .newk button{background:#3b5480;border-color:#3b5480;color:#fff}
+  .speicher{border-top:1px solid #33435c;padding:12px 16px;font-size:13px}
+  .speicher .st{margin-bottom:8px;line-height:1.35}
+  .speicher .st.ok{color:#8fe0b0}
+  .speicher .st.warn{color:#ffcf7a}
+  .speicher button{width:100%;margin-top:5px;background:#2c3a50;border-color:#3d4d66;color:#e7ebf2;font-size:13px}
+  .speicher button.hl{background:#d98b00;border-color:#d98b00;color:#1f2a3a;font-weight:600}
+
+  #main{flex:1;overflow:auto}
+  .page{padding:24px 28px;max-width:1250px}
+  .head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  .head .actions{margin-left:auto;display:flex;gap:8px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  @media (max-width:1050px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .planitem{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:8px}
+  .planitem .t{font-weight:600}
+  .planitem .m{font-size:13px;color:var(--muted)}
+  .planitem .b{margin-left:auto;display:flex;gap:6px}
+  .stulist{list-style:none;margin:10px 0 0;padding:0;columns:2;column-gap:18px}
+  .stulist li{display:flex;align-items:center;gap:6px;padding:4px 2px;border-bottom:1px solid #eef0f3;break-inside:avoid}
+  .stulist li span{flex:1}
+  .stulist li button{border:0;background:transparent;padding:2px 5px;color:var(--muted)}
+  .stulist li button:hover{color:var(--text);background:#eef0f3}
+  .stulist li button.x:hover{color:var(--danger)}
+  details{margin-top:10px}
+  summary{cursor:pointer;color:var(--accent)}
+  .hint{font-size:13px;color:var(--muted);line-height:1.45}
+  .welcome{max-width:760px}
+  .welcome ol{line-height:1.7}
+
+  /* Sitzplan-Ansicht */
+  .toolbar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:10px 18px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  .toolbar .grp{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap}
+  .toolbar .sep{width:1px;align-self:stretch;background:var(--line)}
+  .planbody{display:flex;gap:18px;padding:18px;align-items:flex-start}
+  .sheetwrap{flex:1;min-width:0;background:#e6e8ec;border-radius:10px;padding:16px;overflow:hidden}
+  .pool{width:250px;flex:none;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;position:sticky;top:80px;max-height:calc(100vh - 100px);overflow:auto}
+  .pool.over{outline:3px dashed var(--accent);outline-offset:-3px}
+  .chip{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 10px;margin-bottom:5px;cursor:grab;color:var(--text)}
+  .chip:hover{border-color:var(--accent)}
+  .chip.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .addpool{display:flex;gap:5px;margin-top:10px}
+  .addpool input{flex:1;min-width:0}
+
+  /* Das Blatt (wie die Word-Vorlage, DIN A4 quer) */
+  .sheet{background:#fff;width:277mm;padding:6mm 0 4mm;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,.12);font-family:Calibri,"Segoe UI",Arial,sans-serif;color:#000}
+  .sheet .titel{font-size:18pt;font-weight:700;text-align:center}
+  .sheet .meta{font-size:12pt;text-align:center;margin:1.5mm 0 4mm;white-space:pre}
+  .sheet .meta b{font-weight:400;text-decoration:underline;text-underline-offset:2px}
+  .sheet .grid{display:grid;margin:0 auto;justify-content:center}
+  .seat{display:flex;align-items:center;justify-content:center;text-align:center;padding:1mm 1.5mm;overflow:hidden;position:relative;cursor:pointer;background:#fff}
+  .seat .nm{display:block;font-size:16pt;line-height:1.1;overflow-wrap:normal;word-break:normal}
+  .seat:hover{background:#f2f6fe}
+  .seat.sel{background:#cfe0fb}
+  .seat.over{background:#dbe8fd}
+  .seat.frei.ziel{background:#f5f9ff}
+  .seat .clr{position:absolute;top:1px;right:2px;border:0;background:transparent;font-size:12px;line-height:1;padding:2px 4px;color:#999;display:none}
+  .seat:hover .clr{display:block}
+  .seat .clr:hover{color:var(--danger);background:transparent}
+  .pult{border:2.25pt solid #000;width:55mm;height:10mm;margin:5mm auto 0;display:flex;align-items:center;justify-content:center;font-size:14pt;font-weight:700;letter-spacing:.1em}
+  .pult.oben{margin:0 auto 5mm}
+
+  /* Freie Anordnung */
+  .flaeche{position:relative;margin:0 auto}
+  .flaeche.edit{outline:1px dashed #9aa6ba;outline-offset:2px;
+    background-image:radial-gradient(#d5dbe5 0.5px, transparent 0.6px);background-size:5mm 5mm}
+  .tisch{position:absolute;display:flex}
+  .tisch .seat{flex:none}
+  .flaeche.edit .tisch, .flaeche.edit .pult{cursor:move;touch-action:none;user-select:none}
+  .flaeche.edit .seat{cursor:move}
+  .flaeche.edit .seat:hover{background:#fff}
+  .flaeche.edit .seat .clr{display:none !important}
+  .tsel{outline:3px solid var(--accent);outline-offset:2px;z-index:2}
+  .tsel .seat{background:#eef4fe !important}
+  .pult.frei{position:absolute;margin:0;background:#fff}
+  .leerhinweis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8a94a6;font-size:14pt;pointer-events:none}
+  .modus{background:#eef0f3;border-radius:9px;padding:3px;gap:3px}
+  .modus button{border:0;background:transparent}
+  .modus button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15);font-weight:600}
+  .pal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .pal-grid button{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 4px;font-size:13px}
+  .ico{display:block;border:2px solid #333;height:10px;background:repeating-linear-gradient(90deg,#fff 0 13px,#333 13px 14px)}
+  .ico.i1{width:14px}.ico.i2{width:28px}.ico.i3{width:42px}
+  .ico.g4{width:28px;height:20px;background:repeating-linear-gradient(90deg,transparent 0 13px,#333 13px 14px),linear-gradient(#fff 0 9px,#333 9px 11px,#fff 11px)}
+  .ico.g6{width:42px;height:20px;background:repeating-linear-gradient(90deg,transparent 0 13px,#333 13px 14px),linear-gradient(#fff 0 9px,#333 9px 11px,#fff 11px)}
+
+  /* Klassenliste einlesen */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal{background:#fff;border-radius:14px;width:min(1050px,100%);max-height:calc(100vh - 40px);display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .modal-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .modal-h h2{margin:0}
+  .modal-h .x{margin-left:auto;border:0;font-size:18px}
+  .modal-b{padding:16px 18px;overflow:auto;flex:1}
+  .modal-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .drop{border:2px dashed #c5cad3;border-radius:12px;padding:34px 20px;text-align:center;color:var(--muted);line-height:1.6}
+  .drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop .big{font-size:40px}
+  .imp-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  .imp-grid.ohne{grid-template-columns:1fr}
+  .imp-vorschau{max-height:62vh;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#f7f7f7;position:sticky;top:0}
+  .imp-vorschau img{width:100%;display:block}
+  .imp-zeile{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+  .imp-zeile input[type=text]{flex:1;padding:4px 8px}
+  .imp-zeile.aus input[type=text]{color:#9aa1ad;text-decoration:line-through}
+  .imp-zeile .tag{font-size:11px;color:var(--warn);white-space:nowrap}
+  .imp-zeile button{border:0;padding:2px 6px;color:var(--muted)}
+  .imp-hinweis{background:#fff7e6;border:1px solid #f3d9a4;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px}
+  .imp-fehler{background:#fdecec;border:1px solid #f1b8b8;border-radius:8px;padding:10px 12px;margin-top:12px;color:#8a1f1f}
+  .progress{height:8px;background:#eef0f3;border-radius:5px;overflow:hidden;margin:10px 0 14px}
+  .progress>div{height:100%;background:var(--accent);width:0;transition:width .2s}
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1f2a3a;color:#fff;padding:9px 16px;border-radius:9px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:50}
+  .toast.on{opacity:1}
+
+  /* Blatt passend verkleinern (per transform, funktioniert auch auf dem iPad) */
+  .sheetsizer{margin:0 auto;position:relative}
+  .sheetsizer .sheet{margin:0;transform-origin:0 0;position:absolute;left:0;top:0}
+
+  /* Ziehen mit Maus oder Finger */
+  .chip,.seat{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  .chip{touch-action:pan-y}
+  .planbody .seat:not(.frei){touch-action:none}
+  .geist{position:fixed;z-index:60;pointer-events:none;background:var(--accent);color:#fff;padding:8px 13px;border-radius:9px;
+    box-shadow:0 6px 18px rgba(0,0,0,.25);transform:translate(-50%,-130%);font-size:15px;white-space:nowrap}
+  body.zieht, body.zieht *{cursor:grabbing !important}
+  .platzwahl{background:var(--accent-soft);border:1px solid #bcd0f5;border-radius:10px;padding:10px;margin-bottom:12px}
+  .platzwahl b{display:block;margin-bottom:6px}
+  .pal-pfeile{display:grid;grid-template-columns:repeat(3,40px);gap:4px;justify-content:center;margin-top:8px}
+  .pal-pfeile button{padding:6px 0}
+  button.an{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  /* Menü-Knopf und Hintergrund für schmale Bildschirme (iPad hochkant) */
+  .menuknopf{display:none}
+  #schleier{display:none}
+  @media (max-width:1100px){
+    #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:30;transform:translateX(-105%);transition:transform .2s;box-shadow:4px 0 20px rgba(0,0,0,.3);
+      padding-top:env(safe-area-inset-top)}
+    body.menu-offen #sidebar{transform:none}
+    body.menu-offen #schleier{display:block;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:29}
+    .menuknopf{display:inline-flex;align-items:center;gap:6px}
+    .page{padding:16px}
+  }
+  /* In der Sitzplan-Ansicht braucht das Blatt den Platz: Seitenleiste schon früher einklappen */
+  @media (max-width:1400px){
+    body.planansicht #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:30;transform:translateX(-105%);transition:transform .2s;box-shadow:4px 0 20px rgba(0,0,0,.3);padding-top:env(safe-area-inset-top)}
+    body.planansicht.menu-offen #sidebar{transform:none}
+    body.planansicht.menu-offen #schleier{display:block;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:29}
+    body.planansicht .menuknopf{display:inline-flex;align-items:center}
+  }
+  @media (max-width:900px){
+    .planbody{flex-direction:column;padding:12px}
+    .sheetwrap{width:100%}
+    .pool{width:100%;position:static;max-height:none}
+    .pool .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .pool .chip{width:auto;margin:0}
+    .stulist{columns:1}
+    .toolbar{padding:8px 12px;position:static}
+  }
+  /* Finger statt Maus: größere Knöpfe, keine Vergrößerung beim Tippen in Felder */
+  @media (pointer:coarse){
+    button{padding:9px 14px}
+    button.small{padding:7px 11px}
+    input,select,textarea{font-size:16px;padding:9px 11px}
+    label.f input,label.f select{font-size:16px}
+    .chip{padding:11px 13px}
+    .kl{padding:12px}
+    .stulist li button{padding:8px 11px}
+    .seat .clr{display:none !important}
+  }
+  @supports (padding: env(safe-area-inset-top)){
+    .toolbar{padding-top:max(10px, env(safe-area-inset-top))}
+  }
+
+  @media print{
+    @page{size:A4 landscape;margin:8mm 10mm}
+    body{background:#fff}
+    #sidebar,.toolbar,.pool,.toast,.noprint,.menuknopf,#schleier{display:none !important}
+    #app{display:block;height:auto}
+    #main{overflow:visible}
+    .planbody{padding:0;display:block}
+    .sheetwrap{background:none;padding:0;border-radius:0}
+    .sheetsizer{width:auto !important;height:auto !important}
+    .sheetsizer .sheet{position:static}
+    .sheet{transform:none !important;box-shadow:none;margin:0 auto;padding-top:0}
+    .seat .clr{display:none !important}
+    .seat,.seat.sel,.seat:hover{background:#fff !important}
+    .flaeche.edit{outline:none;background:none}
+    .tsel{outline:none}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">Sitzplaner <small>Realschule Steinhagen</small></div>
+    <div class="sec">Klassen</div>
+    <div id="klassenliste"></div>
+    <form class="newk" id="newk">
+      <input id="newkName" placeholder="Neue Klasse, z. B. 7d" autocomplete="off">
+      <button type="submit" title="Klasse anlegen">+</button>
+    </form>
+    <div class="speicher" id="speicher"></div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="schleier" data-a="menu-zu"></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<input type="file" id="impFile" accept="image/*,.heic,.heif,.pdf,.docx,.xlsx,.csv,.tsv,.txt" hidden>
+<div id="modal"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Sitzplaner – alles in einer Datei.
+   Daten: im Browser (localStorage) + auf Wunsch automatisch in
+   einer Speicherdatei (sitzplaene-daten.json) auf der Festplatte.
+   ============================================================ */
+
+const LS_KEY = "sitzplaner-daten-v1";
+const LS_VIEW = "sitzplaner-ansicht-v1";
+const TW = 0.0176389; // 1 Twip (Word-Maß) in mm
+
+/* ---------- Die beiden Raum-Vorlagen (aus den Word-Dateien übernommen) ---------- */
+function bauKlassenraum(){
+  // 4 Reihen, je 2 Zweiertische links, Gang, 2 Zweiertische rechts
+  const cols = [1800,1800,1800,1800,1300,1800,1800,1800,1800];
+  const rows = [], seats = [];
+  for(let i=0;i<4;i++){
+    rows.push(1600); if(i<3) rows.push(450);
+    const r = i*2;
+    [[0,1],[2,3],[5,6],[7,8]].forEach(([a,b])=>{
+      seats.push({id:`k${i}-${a}`,row:r,col:a,bd:{t:"S",l:"S",b:"S",r:"d"}});
+      seats.push({id:`k${i}-${b}`,row:r,col:b,bd:{t:"S",l:"n",b:"S",r:"S"}});
+    });
+  }
+  return {name:"Klassenraum", titel:"Sitzplan", mitRaum:true, cols, rows, seats};
+}
+function bauPhysikraum(){
+  // 4 Blöcke: Wandplätze links/rechts (übereinander), in der Mitte zwei Zweiertische
+  const cols = [1950,220,1950,1950,1500,1950,1950,220,1950];
+  const rows = [], seats = [];
+  for(let b=0;b<4;b++){
+    rows.push(880,880); if(b<3) rows.push(300);
+    const A = b*3, B = b*3+1;
+    [0,8].forEach(c=>{
+      seats.push({id:`p${b}-${c}a`,row:A,col:c,bd:{t:"S",l:"S",b:"d",r:"S"}});
+      seats.push({id:`p${b}-${c}b`,row:B,col:c,bd:{t:"n",l:"S",b:"S",r:"S"}});
+    });
+    [[2,3],[5,6]].forEach(([x,y])=>{
+      seats.push({id:`p${b}-${x}`,row:B,col:x,bd:{t:"S",l:"S",b:"S",r:"d"}});
+      seats.push({id:`p${b}-${y}`,row:B,col:y,bd:{t:"S",l:"n",b:"S",r:"S"}});
+    });
+  }
+  return {name:"Physikraum", titel:"Sitzplan Physikraum", mitRaum:false, cols, rows, seats};
+}
+const LAYOUTS = {klassenraum: bauKlassenraum(), physikraum: bauPhysikraum()};
+for(const L of Object.values(LAYOUTS)){
+  L.seats.sort((a,b)=>a.row-b.row||a.col-b.col);
+}
+
+/* ---------- Freie Anordnung: Tische selbst schieben ---------- */
+const FL_W = 277, FL_H = 165;     // Fläche in mm (passt auf DIN A4 quer)
+const SW = 30, SH = 18;           // ein Platz: 30 mm breit, 18 mm hoch
+const PULT_W = 55, PULT_H = 10;
+const tid = () => "t" + Math.random().toString(36).slice(2,9);
+const pultStart = () => ({x:(FL_W-PULT_W)/2, y:FL_H-PULT_H-2});
+const tischGroesse = t => t.richtung==="laengs" ? [SW, t.n*SH] : [t.n*SW, SH];
+const sitzId = (t,i) => `${t.id}-${i}`;
+
+// Aus einer festen Vorlage Tische machen (Zweiertische bleiben zusammen)
+function vorlageZuTischen(typ){
+  const L = LAYOUTS[typ];
+  const x0 = c => L.cols.slice(0,c).reduce((a,b)=>a+b,0)*TW;
+  const y0 = r => L.rows.slice(0,r).reduce((a,b)=>a+b,0)*TW;
+  const breite = L.cols.reduce((a,b)=>a+b,0)*TW, versatz = (FL_W-breite)/2;
+  const tische = [], map = {}, belegt = new Set();
+  const finde = (r,c) => L.seats.find(s=>s.row===r && s.col===c);
+  for(const s of L.seats){
+    if(belegt.has(s.id)) continue;
+    let partner = null, richtung = "quer";
+    if(s.bd.r==="d") partner = finde(s.row, s.col+1);
+    else if(s.bd.b==="d"){ partner = finde(s.row+1, s.col); richtung = "laengs"; }
+    const t = {id:tid(), x:+(x0(s.col)+versatz).toFixed(1), y:+y0(s.row).toFixed(1), n:partner?2:1, richtung};
+    tische.push(t);
+    map[s.id] = sitzId(t,0); belegt.add(s.id);
+    if(partner){ map[partner.id] = sitzId(t,1); belegt.add(partner.id); }
+  }
+  return {tische, map};
+}
+function gruppenStart(){
+  // 8 Gruppentische zu je 4 Plätzen (2 Zweiertische gegenüber), 4 nebeneinander, 2 Reihen
+  const tische = [], gw = 2*SW, gh = 2*SH, sp = 4;
+  const lx = (FL_W - sp*gw) / (sp+1);
+  for(let r=0;r<2;r++) for(let c=0;c<sp;c++){
+    const x = +(lx + c*(gw+lx)).toFixed(1), y = 18 + r*(gh+38);
+    tische.push({id:tid(), x, y, n:2, richtung:"quer"}, {id:tid(), x, y:y+SH, n:2, richtung:"quer"});
+  }
+  return tische;
+}
+function startTische(art){
+  if(art==="reihen") return vorlageZuTischen("klassenraum").tische;
+  if(art==="physik") return vorlageZuTischen("physikraum").tische;
+  if(art==="gruppen") return gruppenStart();
+  return [];
+}
+
+// Infos zu einem Plan, egal ob Vorlage oder frei
+const istFrei = p => p.typ==="frei";
+const planArt = p => istFrei(p) ? "Frei angeordnet" : LAYOUTS[p.typ].name;
+const mitRaum = p => istFrei(p) || LAYOUTS[p.typ].mitRaum;
+function planPlaetze(p){
+  if(!istFrei(p)) return LAYOUTS[p.typ].seats.map(s=>s.id);
+  return p.tische.flatMap(t=>Array.from({length:t.n},(_,i)=>sitzId(t,i)));
+}
+// Plätze von vorne (am Pult) nach hinten, in „Bändern“, damit innerhalb eines Bands gemischt werden kann
+function plaetzeVonVorne(p){
+  if(!istFrei(p)){
+    const reihen = {};
+    LAYOUTS[p.typ].seats.forEach(s=>(reihen[s.row] ||= []).push(s.id));
+    return Object.keys(reihen).map(Number).sort((a,b)=>b-a).map(r=>reihen[r]);
+  }
+  const px = p.pult.x+PULT_W/2, py = p.pult.y+PULT_H/2, baender = {};
+  for(const t of p.tische) for(let i=0;i<t.n;i++){
+    const cx = t.richtung==="laengs" ? t.x+SW/2 : t.x+i*SW+SW/2;
+    const cy = t.richtung==="laengs" ? t.y+i*SH+SH/2 : t.y+SH/2;
+    const b = Math.floor(Math.hypot(cx-px, cy-py)/35);
+    (baender[b] ||= []).push(sitzId(t,i));
+  }
+  return Object.keys(baender).map(Number).sort((a,b)=>a-b).map(b=>baender[b]);
+}
+
+/* ---------- Hilfen ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2));
+const jetzt = () => new Date().toISOString();
+const datum = iso => iso ? new Date(iso).toLocaleDateString("de-DE") : "";
+const nachname = n => { const p = n.trim().split(/\s+/); return p[p.length-1]; };
+const vorname = n => { const p = n.trim().split(/\s+/); return p.length>1 ? p.slice(0,-1).join(" ") : p[0]; };
+const sortSchueler = arr => [...arr].sort((a,b)=>
+  nachname(a.name).localeCompare(nachname(b.name),"de") || a.name.localeCompare(b.name,"de"));
+const sortKlassen = arr => [...arr].sort((a,b)=>a.name.localeCompare(b.name,"de",{numeric:true}));
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("on"),2600); }
+function aktuellesSchuljahr(){
+  const d=new Date(), y=d.getFullYear(), m=d.getMonth()+1;
+  const s = m>=8 ? y : y-1;
+  return `${s}/${String((s+1)%100).padStart(2,"0")}`;
+}
+
+/* ---------- Daten ---------- */
+function leer(){ return {version:1, gespeichert:null, klassen:[]}; }
+function pruefe(d){
+  if(!d || !Array.isArray(d.klassen)) throw new Error("Das ist keine Sitzplaner-Datei.");
+  for(const k of d.klassen){
+    k.id ||= uid(); k.name ||= "Klasse"; k.schuljahr ??= ""; k.schueler ||= []; k.plaene ||= [];
+    const ids = new Set(k.schueler.map(s=>s.id));
+    for(const p of k.plaene){
+      p.id ||= uid(); p.typ = (LAYOUTS[p.typ] || p.typ==="frei") ? p.typ : "klassenraum"; p.sitze ||= {};
+      if(istFrei(p)){
+        p.tische = Array.isArray(p.tische) ? p.tische.filter(t=>t && t.id && t.n>0) : [];
+        p.tische.forEach(t=>{ t.x=+t.x||0; t.y=+t.y||0; t.n=Math.min(6,Math.max(1,+t.n||1)); t.richtung = t.richtung==="laengs"?"laengs":"quer"; });
+        p.pult ||= pultStart(); p.pultOben = false;
+      }
+      p.anzeige ||= "voll"; p.pultOben = !!p.pultOben; p.raum ??= ""; p.titel ||= planArt(p);
+      const plaetze = new Set(planPlaetze(p));
+      for(const [seat,sid] of Object.entries(p.sitze)) if(!ids.has(sid) || !plaetze.has(seat)) delete p.sitze[seat];
+    }
+  }
+  return d;
+}
+function ladeLokal(){
+  try{ const t=localStorage.getItem(LS_KEY); return t ? pruefe(JSON.parse(t)) : leer(); }
+  catch(e){ console.error(e); return leer(); }
+}
+
+let S = ladeLokal();
+let view = (()=>{ try{ return JSON.parse(localStorage.getItem(LS_VIEW))||{name:"start"}; }catch{ return {name:"start"}; } })();
+let sel = null;         // ausgewählter Schüler oder Platz im Sitzplan
+let freiModus = "setzen";      // bei freien Plänen: "anordnen" (Tische schieben) oder "setzen" (Schüler setzen)
+let selTische = new Set();     // ausgewählte Tische (und ggf. "PULT")
+let mehrfach = false;          // „Mehrere auswählen“ (für den Finger statt Umschalt-Taste)
+let klickSperre = 0;
+let undo = [];
+
+const K = id => S.klassen.find(k=>k.id===id);
+const P = (k,id) => k && k.plaene.find(p=>p.id===id);
+
+function aendern(fn, opts={}){
+  undo.push(JSON.stringify(S)); if(undo.length>80) undo.shift();
+  fn();
+  S.gespeichert = jetzt();
+  speichern();
+  if(!opts.ohneRender) render();
+}
+function rueckgaengig(){
+  if(!undo.length){ toast("Nichts zum Rückgängigmachen."); return; }
+  S = pruefe(JSON.parse(undo.pop())); S.gespeichert = jetzt(); sel=null;
+  speichern(); render(); toast("Rückgängig gemacht.");
+}
+function zeige(v, modus){ view=v; sel=null; selTische=new Set(); freiModus = modus || "setzen"; mehrfach = false;
+  document.body.classList.remove("menu-offen"); localStorage.setItem(LS_VIEW, JSON.stringify(v)); render(); $("#main").scrollTop=0; }
+
+/* ---------- Speichern: Browser + Speicherdatei ---------- */
+const fsOk = "showSaveFilePicker" in window;
+let datei = null;            // FileSystemFileHandle
+let dateiVerbunden = false;
+let dateiFehler = "";
+let schreibTimer = null;
+
+function speichern(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); }
+  catch(e){ toast("Achtung: Speichern im Browser hat nicht geklappt."); }
+  if(datei && dateiVerbunden){ clearTimeout(schreibTimer); schreibTimer=setTimeout(schreibeDatei, 400); }
+}
+async function schreibeDatei(){
+  if(!datei || !dateiVerbunden) return;
+  try{
+    const w = await datei.createWritable();
+    await w.write(JSON.stringify(S, null, 1));
+    await w.close();
+    dateiFehler = "";
+  }catch(e){
+    console.error(e); dateiFehler = "Speichern in der Datei hat nicht geklappt."; dateiVerbunden = false;
+  }
+  renderSpeicher();
+}
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open("sitzplaner",1); r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbGet(k){ const db=await idb(); return new Promise((res,rej)=>{ const q=db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+async function idbSet(k,v){ const db=await idb(); return new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }
+
+async function leseDatei(h){
+  const f = await h.getFile(); const t = await f.text();
+  return t.trim() ? pruefe(JSON.parse(t)) : null;
+}
+// Abgleich: die neuere Fassung gewinnt
+async function abgleichen(){
+  const d = await leseDatei(datei);
+  if(d && (!S.gespeichert || (d.gespeichert && d.gespeichert > S.gespeichert))){
+    S = d; localStorage.setItem(LS_KEY, JSON.stringify(S)); undo=[];
+    toast("Daten aus der Speicherdatei geladen."); render();
+  } else {
+    await schreibeDatei();
+  }
+}
+async function dateiVerbinden(){
+  try{
+    let p = await datei.queryPermission({mode:"readwrite"});
+    if(p!=="granted") p = await datei.requestPermission({mode:"readwrite"});
+    if(p!=="granted"){ toast("Kein Zugriff auf die Datei erlaubt."); return; }
+    dateiVerbunden = true; dateiFehler = "";
+    await abgleichen();
+  }catch(e){ console.error(e); dateiFehler="Die Datei konnte nicht geöffnet werden (verschoben oder gelöscht?)."; dateiVerbunden=false; }
+  renderSpeicher();
+}
+const jsonTyp = [{description:"Sitzplaner-Daten", accept:{"application/json":[".json"]}}];
+async function neueDatei(){
+  try{
+    const h = await showSaveFilePicker({suggestedName:"sitzplaene-daten.json", types:jsonTyp});
+    datei = h; dateiVerbunden = true; dateiFehler=""; await idbSet("datei", h);
+    await schreibeDatei(); toast("Speicherdatei angelegt. Ab jetzt wird automatisch gespeichert.");
+  }catch(e){ if(e.name!=="AbortError"){ console.error(e); toast("Das hat nicht geklappt."); } }
+  renderSpeicher();
+}
+async function dateiOeffnen(){
+  try{
+    const [h] = await showOpenFilePicker({types:jsonTyp, multiple:false});
+    let p = await h.requestPermission({mode:"readwrite"});
+    if(p!=="granted"){ toast("Kein Zugriff auf die Datei erlaubt."); return; }
+    const d = await leseDatei(h);
+    if(d && S.klassen.length && !confirm("Die Daten aus der Datei ersetzen die Daten, die gerade im Programm sind. Weiter?")) return;
+    datei = h; dateiVerbunden = true; dateiFehler=""; await idbSet("datei", h);
+    if(d){ S = d; S.gespeichert ||= jetzt(); localStorage.setItem(LS_KEY, JSON.stringify(S)); undo=[]; zeige({name:"start"}); }
+    else await schreibeDatei();
+    toast("Speicherdatei verbunden.");
+  }catch(e){ if(e.name!=="AbortError"){ console.error(e); toast("Die Datei konnte nicht gelesen werden."); } }
+  renderSpeicher();
+}
+function sicherungLaden(){ $("#importFile").value=""; $("#importFile").click(); }
+$("#importFile").addEventListener("change", async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const d = pruefe(JSON.parse(await f.text()));
+    const stand = iso => iso ? new Date(iso).toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"}) : "unbekannt";
+    let frage = `Sicherung „${f.name}“ laden?\n\nIn der Sicherung: ${d.klassen.length} Klasse(n), Stand ${stand(d.gespeichert)}.\nHier im Programm: ${S.klassen.length} Klasse(n), Stand ${stand(S.gespeichert)}.\n\nDie Daten hier werden dadurch ersetzt.`;
+    if(S.klassen.length && d.gespeichert && S.gespeichert && d.gespeichert < S.gespeichert)
+      frage = "⚠ ACHTUNG: Die Sicherung ist ÄLTER als die Daten hier. Neuere Änderungen gehen verloren!\n\n" + frage;
+    if(!confirm(frage)) return;
+    aendern(()=>{ S = d; }, {ohneRender:true}); zeige({name:"start"}); toast("Sicherung geladen.");
+  }catch(err){ alert("Die Datei konnte nicht geladen werden: "+err.message); }
+});
+const LS_SICHERUNG = "sitzplaner-letzte-sicherung";
+function sicherungsDatei(){
+  const d = new Date(), z = n => String(n).padStart(2,"0");
+  const name = `sitzplaene-sicherung-${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`;
+  return new File([JSON.stringify(S,null,1)], name, {type:"application/json"});
+}
+function sicherungGemacht(){ localStorage.setItem(LS_SICHERUNG, jetzt()); renderSpeicher(); }
+function sicherungHerunterladen(){
+  const f = sicherungsDatei();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(f);
+  a.download = f.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  sicherungGemacht();
+}
+// iPad/iPhone: über „Teilen“ direkt in Dateien, OneDrive, Mail oder AirDrop
+const teilenOk = !!(navigator.canShare && navigator.canShare({files:[new File(["{}"],"t.json",{type:"application/json"})]}));
+async function sicherungTeilen(){
+  const f = sicherungsDatei();
+  try{ await navigator.share({files:[f], title:"Sitzplaner-Sicherung"}); sicherungGemacht(); }
+  catch(e){ if(e.name!=="AbortError") sicherungHerunterladen(); }
+}
+
+/* ---------- Anzeige der Namen ---------- */
+function anzeigeName(k, p, sid){
+  const s = k.schueler.find(x=>x.id===sid); if(!s) return "";
+  if(p.anzeige==="voll") return s.name;
+  const vn = vorname(s.name), nn = nachname(s.name);
+  if(p.anzeige==="vornameN") return vn===nn ? vn : `${vn} ${nn[0]}.`;
+  // nur Vorname – bei doppelten Vornamen in der Klasse den Anfangsbuchstaben dazu
+  const gleich = k.schueler.filter(x=>vorname(x.name)===vn).length > 1;
+  return gleich && vn!==nn ? `${vn} ${nn[0]}.` : vn;
+}
+
+/* ---------- Rendern ---------- */
+function render(){ renderSidebar(); renderMain(); renderSpeicher(); }
+
+function renderSidebar(){
+  const aktiv = view.klasseId;
+  $("#klassenliste").innerHTML = S.klassen.length
+    ? sortKlassen(S.klassen).map(k=>`<button class="kl ${k.id===aktiv?"active":""}" data-a="klasse" data-id="${k.id}">${esc(k.name)}<small>${k.schueler.length} Sch.</small></button>`).join("")
+    : `<div class="hint" style="color:#9fb0c8;padding:6px 10px">Noch keine Klasse. Unten eine anlegen.</div>`;
+}
+
+function renderSpeicher(){
+  let h = "";
+  if(fsOk){
+    if(datei && dateiVerbunden){
+      h += `<div class="st ok">✔ Wird automatisch gespeichert in<br><b>${esc(datei.name)}</b></div>
+            <button data-a="datei-oeffnen">Andere Speicherdatei wählen</button>`;
+    } else if(datei){
+      h += `<div class="st warn">${dateiFehler?esc(dateiFehler):"Die Speicherdatei ist noch nicht verbunden."}</div>
+            <button class="hl" data-a="datei-verbinden">Mit „${esc(datei.name)}“ verbinden</button>
+            <button data-a="datei-oeffnen">Andere Datei öffnen</button>`;
+    } else {
+      h += `<div class="st warn">Noch keine Speicherdatei. Die Daten liegen bisher nur im Browser.</div>
+            <button class="hl" data-a="datei-neu">Speicherdatei anlegen</button>
+            <button data-a="datei-oeffnen">Vorhandene Datei öffnen</button>`;
+    }
+  } else {
+    h += `<div class="st">Die Daten bleiben auf diesem Gerät gespeichert. Zum Übertragen auf ein anderes Gerät: hier eine Sicherung machen und dort „Sicherung laden“.</div>`;
+  }
+  // Erinnerung an die letzte Sicherung (je Gerät)
+  const letzte = localStorage.getItem(LS_SICHERUNG);
+  const tage = letzte ? Math.floor((Date.now()-new Date(letzte))/864e5) : null;
+  if(!(fsOk && datei && dateiVerbunden) && S.klassen.length){
+    h += letzte
+      ? `<div class="st ${tage>14?"warn":""}">Letzte Sicherung: ${datum(letzte)}${tage>14?` – vor ${tage} Tagen!`:""}</div>`
+      : `<div class="st warn">Noch keine Sicherung gemacht.</div>`;
+  }
+  h += teilenOk ? `<button class="${!letzte||tage>14?"hl":""}" data-a="sicherung-teilen">Sicherung teilen / senden …</button>` : "";
+  h += `<button data-a="sicherung-runter">Sicherung herunterladen</button>
+        <button data-a="sicherung-laden">Sicherung laden</button>`;
+  $("#speicher").innerHTML = h;
+}
+
+function renderMain(){
+  const m = $("#main");
+  document.body.classList.toggle("planansicht", view.name==="plan");
+  if(view.name==="klasse"){ const k=K(view.klasseId); if(k){ m.innerHTML = htmlKlasse(k); return; } }
+  if(view.name==="plan"){ const k=K(view.klasseId), p=P(k,view.planId); if(p){ m.innerHTML = htmlPlan(k,p); nachPlanRender(); return; } }
+  view = {name:"start"};
+  m.innerHTML = htmlStart();
+}
+
+function htmlStart(){
+  return `<div class="page welcome">
+    <button class="menuknopf" data-a="menu" style="margin-bottom:12px">☰ Klassen</button>
+    <h1>Sitzplaner</h1>
+    <p class="muted">Sitzpläne für deine Klassen anlegen, ändern und speichern – mit den beiden Vorlagen „Klassenraum“ und „Physikraum“.</p>
+    <div class="card">
+      <h2>So geht's</h2>
+      <ol>
+        <li>Links unten eine <b>Klasse anlegen</b> (z. B. „7d“).</li>
+        <li>In der Klasse die <b>Schüler eintragen</b> – einzeln oder eine ganze Liste auf einmal einfügen.</li>
+        <li>Einen <b>Sitzplan anlegen</b>: Vorlage „Klassenraum“ oder „Physikraum“ wählen.</li>
+        <li>Namen auf die Plätze <b>ziehen</b> (oder erst Namen, dann Platz anklicken). Oder „Zufällig verteilen“.</li>
+        <li><b>Drucken / PDF</b> – das Blatt sieht aus wie deine Word-Vorlage (DIN A4 quer).</li>
+      </ol>
+      <p class="hint">Alles wird sofort gespeichert. Damit die Daten auch sicher auf der Festplatte liegen, links unten einmal
+      <b>„Speicherdatei anlegen“</b> wählen und sie am besten hier im Ordner <i>Sitzplan-Programm</i> ablegen.
+      Nach einem Neustart reicht dann ein Klick auf „verbinden“.</p>
+    </div>
+    ${S.klassen.length?`<p class="muted" style="margin-top:16px">${S.klassen.length} Klasse(n) gespeichert${S.gespeichert?`, zuletzt geändert am ${datum(S.gespeichert)}`:""}.</p>`:""}
+  </div>`;
+}
+
+function htmlKlasse(k){
+  const plaene = [...k.plaene].sort((a,b)=>(b.geaendert||"").localeCompare(a.geaendert||""));
+  const schueler = sortSchueler(k.schueler);
+  return `<div class="page">
+    <div class="head">
+      <button class="menuknopf" data-a="menu">☰</button>
+      <h1>Klasse ${esc(k.name)}</h1>
+      <label class="f">Schuljahr<input data-f="schuljahr" value="${esc(k.schuljahr)}" placeholder="${aktuellesSchuljahr()}" style="width:110px"></label>
+      <div class="actions">
+        <button data-a="klasse-umbenennen">Umbenennen</button>
+        <button class="danger" data-a="klasse-loeschen">Klasse löschen</button>
+      </div>
+    </div>
+    <div class="cols">
+      <section class="card">
+        <h2>Sitzpläne (${k.plaene.length})</h2>
+        ${plaene.length ? plaene.map(p=>{
+          const n = Object.keys(p.sitze).length;
+          return `<div class="planitem">
+            <div><div class="t">${esc(p.titel)}</div>
+              <div class="m">${planArt(p)}${p.raum && mitRaum(p)?` · Raum ${esc(p.raum)}`:""} · ${n} von ${k.schueler.length} sitzen · geändert ${datum(p.geaendert)}</div></div>
+            <div class="b">
+              <button class="primary small" data-a="plan-oeffnen" data-id="${p.id}">Öffnen</button>
+              <button class="small" data-a="plan-kopie" data-id="${p.id}" title="Kopie anlegen">Kopie</button>
+              <button class="small danger" data-a="plan-loeschen" data-id="${p.id}" title="Löschen">✕</button>
+            </div></div>`;}).join("") : `<p class="hint">Noch kein Sitzplan.</p>`}
+        <form id="neuplan" class="row" style="margin-top:14px;align-items:flex-end">
+          <label class="f">Vorlage<select name="typ">
+            <optgroup label="Feste Vorlagen">
+              <option value="klassenraum">Klassenraum (4 Reihen, 32 Plätze)</option>
+              <option value="physikraum">Physikraum (32 Plätze)</option></optgroup>
+            <optgroup label="Tische frei verschieben – Start mit …">
+              <option value="frei-reihen">… Reihen (wie Klassenraum)</option>
+              <option value="frei-gruppen">… Gruppentischen (8 × 4 Plätze)</option>
+              <option value="frei-physik">… Physikraum</option>
+              <option value="frei-leer">… leerer Fläche</option></optgroup></select></label>
+          <label class="f">Name (frei wählbar)<input name="titel" placeholder="z. B. Mathe ab Herbst" style="width:170px"></label>
+          <label class="f">Raum<input name="raum" placeholder="z. B. 112" style="width:80px"></label>
+          <button class="primary" type="submit">Sitzplan anlegen</button>
+        </form>
+      </section>
+      <section class="card">
+        <h2>Schüler (${k.schueler.length})</h2>
+        <button class="primary" data-a="import" style="width:100%;padding:10px;margin-bottom:12px">📷 Klassenliste einlesen – aus Foto oder Datei</button>
+        <form id="neuschueler" class="row">
+          <input name="name" placeholder="Vorname Nachname" style="flex:1" autocomplete="off">
+          <button class="primary" type="submit">Hinzufügen</button>
+        </form>
+        <details>
+          <summary>Mehrere auf einmal einfügen</summary>
+          <form id="neuliste" style="margin-top:8px">
+            <textarea name="liste" placeholder="Ein Name pro Zeile, z. B.&#10;Anna Beispiel&#10;Beispiel, Ben  (wird zu „Ben Beispiel“)"></textarea>
+            <div class="row" style="margin-top:6px"><button class="primary" type="submit">Alle hinzufügen</button>
+            <span class="hint">Doppelte Namen werden übersprungen.</span></div>
+          </form>
+        </details>
+        ${schueler.length ? `<ul class="stulist">${schueler.map(s=>`<li><span>${esc(s.name)}</span>
+          <button data-a="schueler-umbenennen" data-id="${s.id}" title="Namen ändern">✎</button>
+          <button class="x" data-a="schueler-entfernen" data-id="${s.id}" title="Entfernen">✕</button></li>`).join("")}</ul>`
+          : `<p class="hint">Noch keine Schüler eingetragen.</p>`}
+      </section>
+    </div>
+  </div>`;
+}
+
+function lageFuer(p){
+  const L = LAYOUTS[p.typ];
+  const nR = L.rows.length, nC = L.cols.length;
+  if(!p.pultOben) return {L, cols:L.cols, rows:L.rows, seats:L.seats};
+  // Pult oben = Blick von hinten: alles um 180° drehen
+  return {L, cols:[...L.cols].reverse(), rows:[...L.rows].reverse(),
+    seats: L.seats.map(s=>({id:s.id,row:nR-1-s.row,col:nC-1-s.col,bd:{t:s.bd.b,b:s.bd.t,l:s.bd.r,r:s.bd.l}}))};
+}
+const rand = v => v==="S" ? "2.25pt solid #000" : v==="d" ? "0.6pt dashed #000" : "none";
+
+function htmlMeta(k,p){
+  return mitRaum(p)
+    ? `Klasse: <b>${esc(k.name)||"____________"}</b>     Raum: <b>${esc(p.raum)||"____________"}</b>     Schuljahr: <b>${esc(k.schuljahr)||"______________"}</b>`
+    : `Klasse: <b>${esc(k.name)||"____________"}</b>     Schuljahr: <b>${esc(k.schuljahr)||"______________"}</b>`;
+}
+function htmlSitz(k,p,platz,stil,ziehbar=true){
+  const sid = p.sitze[platz];
+  const name = sid ? anzeigeName(k,p,sid) : "";
+  const istSel = sel && sel.typ==="platz" && sel.id===platz;
+  return `<div class="seat ${sid?"":"frei"} ${istSel?"sel":""}" data-seat="${platz}" ${sid&&ziehbar?`data-drag="platz:${platz}"`:""} style="${stil}">
+    ${sid?`<span class="nm">${esc(name)}</span><button class="clr" data-a="platz-leeren" data-id="${platz}" title="Platz leeren">✕</button>`:""}</div>`;
+}
+function htmlBlattFrei(k,p){
+  const edit = freiModus==="anordnen";
+  const S1 = "2.25pt solid #000", D1 = "0.6pt dashed #000";
+  const tische = p.tische.map(t=>{
+    const laengs = t.richtung==="laengs";
+    const plaetze = Array.from({length:t.n},(_,i)=>{
+      const erst = i===0, letzt = i===t.n-1;
+      const rahmen = laengs
+        ? `border-left:${S1};border-right:${S1};border-top:${erst?S1:D1};border-bottom:${letzt?S1:"none"}`
+        : `border-top:${S1};border-bottom:${S1};border-left:${erst?S1:D1};border-right:${letzt?S1:"none"}`;
+      return htmlSitz(k,p,sitzId(t,i),`width:${SW}mm;height:${SH}mm;${rahmen}`,!edit);
+    }).join("");
+    return `<div class="tisch ${selTische.has(t.id)?"tsel":""}" data-tisch="${t.id}" style="left:${t.x}mm;top:${t.y}mm;flex-direction:${laengs?"column":"row"}">${plaetze}</div>`;
+  }).join("");
+  return `<div class="sheet" id="sheet">
+    <div class="titel">Sitzplan</div>
+    <div class="meta">${htmlMeta(k,p)}</div>
+    <div class="flaeche ${edit?"edit":""}" id="flaeche" style="width:${FL_W}mm;height:${FL_H}mm">
+      ${tische}
+      <div class="pult frei ${selTische.has("PULT")?"tsel":""}" data-pult="1" style="left:${p.pult.x}mm;top:${p.pult.y}mm">PULT</div>
+      ${edit && !p.tische.length?`<div class="leerhinweis noprint">Noch keine Tische – rechts welche hinzufügen.</div>`:""}
+    </div>
+  </div>`;
+}
+
+function htmlBlatt(k,p){
+  if(istFrei(p)) return htmlBlattFrei(k,p);
+  const {L, cols, rows, seats} = lageFuer(p);
+  const mm = a => a.map(t=>(t*TW).toFixed(2)+"mm").join(" ");
+  const meta = htmlMeta(k,p);
+  const pult = `<div class="pult ${p.pultOben?"oben":""}">PULT</div>`;
+  const zellen = seats.map(s=>htmlSitz(k,p,s.id,
+    `grid-row:${s.row+1};grid-column:${s.col+1};border-top:${rand(s.bd.t)};border-left:${rand(s.bd.l)};border-bottom:${rand(s.bd.b)};border-right:${rand(s.bd.r)}`)).join("");
+  return `<div class="sheet" id="sheet">
+    <div class="titel">${esc(L.titel)}</div>
+    <div class="meta">${meta}</div>
+    ${p.pultOben?pult:""}
+    <div class="grid" style="grid-template-columns:${mm(cols)};grid-template-rows:${mm(rows)}">${zellen}</div>
+    ${p.pultOben?"":pult}
+  </div>`;
+}
+
+function htmlPlan(k,p){
+  const sitzend = new Set(Object.values(p.sitze));
+  const frei = sortSchueler(k.schueler.filter(s=>!sitzend.has(s.id)));
+  const plaetze = planPlaetze(p).length;
+  const frei_ = istFrei(p), edit = frei_ && freiModus==="anordnen";
+  return `<div class="toolbar">
+      <div class="grp"><button class="menuknopf" data-a="menu">☰</button><button data-a="zurueck">← Klasse ${esc(k.name)}</button></div>
+      <div class="sep"></div>
+      ${frei_?`<div class="grp modus">
+        <button class="${edit?"on":""}" data-a="modus" data-id="anordnen">✋ Tische anordnen</button>
+        <button class="${edit?"":"on"}" data-a="modus" data-id="setzen">👤 Schüler setzen</button>
+      </div><div class="sep"></div>`:""}
+      <div class="grp">
+        <label class="f">Name des Sitzplans<input data-f="plan-titel" value="${esc(p.titel)}" style="width:170px"></label>
+        ${mitRaum(p)?`<label class="f">Raum<input data-f="plan-raum" value="${esc(p.raum)}" style="width:75px"></label>`:""}
+        <label class="f">Namen zeigen<select data-f="plan-anzeige">
+          <option value="voll" ${p.anzeige==="voll"?"selected":""}>Vor- und Nachname</option>
+          <option value="vornameN" ${p.anzeige==="vornameN"?"selected":""}>Vorname + N.</option>
+          <option value="vorname" ${p.anzeige==="vorname"?"selected":""}>Nur Vorname</option></select></label>
+        ${frei_?"":`<label class="f">Pult<select data-f="plan-pult">
+          <option value="unten" ${!p.pultOben?"selected":""}>unten (wie Vorlage)</option>
+          <option value="oben" ${p.pultOben?"selected":""}>oben (Blick von hinten)</option></select></label>
+        <button data-a="umwandeln" title="Die Tische dieses Plans frei verschieben – die Sitzordnung bleibt">✋ Tische frei verschieben</button>`}
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <button data-a="zufall-auffuellen" title="Nur die Schüler ohne Platz zufällig auf freie Plätze setzen">Zufällig auffüllen</button>
+        <button data-a="zufall-alle" title="Alle Schüler neu zufällig verteilen">Alle neu mischen</button>
+        <button data-a="alle-leeren">Alle Plätze leeren</button>
+        <button data-a="rueckgaengig" ${undo.length?"":"disabled"} title="Strg+Z">↶ Rückgängig</button>
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <button class="primary" data-a="drucken">Drucken / PDF</button>
+        <button data-a="plan-kopie" data-id="${p.id}">Kopie anlegen</button>
+        <button class="danger" data-a="plan-loeschen" data-id="${p.id}">Löschen</button>
+      </div>
+    </div>
+    <div class="planbody">
+      <div class="sheetwrap" id="sheetwrap"><div class="sheetsizer" id="sheetsizer">${htmlBlatt(k,p)}</div></div>
+      ${edit ? htmlTischPalette(p) : `<aside class="pool" id="pool">
+        ${sel && sel.typ==="platz" && p.sitze[sel.id] ? `<div class="platzwahl">
+          <b>${esc(anzeigeName(k,p,p.sitze[sel.id]))}</b>
+          <div class="row"><button data-a="platz-leeren" data-id="${sel.id}">Platz leeren</button><button data-a="auswahl-weg">Abbrechen</button></div>
+          <p class="hint" style="margin:6px 0 0">Tippe einen anderen Platz an, um zu tauschen oder umzusetzen.</p></div>` : ""}
+        <h3>Noch ohne Platz (${frei.length})</h3>
+        <div class="chips">${frei.length ? frei.map(s=>`<button class="chip ${sel&&sel.typ==="schueler"&&sel.id===s.id?"sel":""}" data-drag="schueler:${s.id}" data-a="chip" data-id="${s.id}">${esc(s.name)}</button>`).join("")
+          : `<p class="hint">${k.schueler.length?"Alle Schüler haben einen Platz.":"Diese Klasse hat noch keine Schüler."}</p>`}</div>
+        ${!k.schueler.length?`<button class="primary" data-a="import" style="width:100%">📷 Klassenliste einlesen</button>`:""}
+        <form id="poolneu" class="addpool"><input name="name" placeholder="Neuer Schüler" autocomplete="off"><button type="submit">+</button></form>
+        <p class="hint" style="margin-top:12px">${Object.keys(p.sitze).length} von ${plaetze} Plätzen belegt.</p>
+        <p class="hint"><b>So geht's:</b> Namen auf einen Platz ziehen – oder erst den Namen, dann den Platz antippen.
+        Platz auf Platz ziehen tauscht die beiden. Zum Leeren einen Platz antippen und „Platz leeren“ wählen – oder den Namen hierher zurückziehen.</p>
+      </aside>`}
+    </div>`;
+}
+
+function htmlTischPalette(p){
+  const n = [...selTische].filter(id=>id!=="PULT").length;
+  const plaetze = planPlaetze(p).length;
+  return `<aside class="pool palette">
+    <h3>Tische hinzufügen</h3>
+    <div class="pal-grid">
+      <button data-a="tisch-neu" data-id="1"><span class="ico i1"></span>Einzeltisch</button>
+      <button data-a="tisch-neu" data-id="2"><span class="ico i2"></span>Zweiertisch</button>
+      <button data-a="tisch-neu" data-id="3"><span class="ico i3"></span>Dreiertisch</button>
+      <button data-a="tisch-neu" data-id="g4"><span class="ico g4"></span>Gruppe 4</button>
+      <button data-a="tisch-neu" data-id="g6"><span class="ico g6"></span>Gruppe 6</button>
+    </div>
+    <h3 style="margin-top:16px">Auswahl ${n?`(${n} Tisch${n>1?"e":""})`:""}</h3>
+    ${n ? `<div class="row">
+        <button data-a="tisch-drehen" title="Taste R">⟳ Drehen</button>
+        <button data-a="tisch-kopie" title="Strg+D">⧉ Kopie</button>
+        <button class="danger" data-a="tisch-weg" title="Entf-Taste">✕ Löschen</button></div>
+      <div class="pal-pfeile" title="Fein verschieben">
+        <span></span><button data-a="tisch-schieben" data-id="o">▲</button><span></span>
+        <button data-a="tisch-schieben" data-id="l">◀</button><button data-a="tisch-schieben" data-id="u">▼</button><button data-a="tisch-schieben" data-id="r">▶</button>
+      </div>`
+      : `<p class="hint">Antippen wählt einen Tisch aus.</p>`}
+    <button class="${mehrfach?"an":""}" data-a="mehrfach" style="width:100%;margin-top:10px">${mehrfach?"✓ Mehrere auswählen (an)":"Mehrere auswählen"}</button>
+    <p class="hint" style="margin-top:6px">Damit tippst du mehrere Tische an und schiebst sie zusammen. Am Rechner geht das auch mit der Umschalt-Taste.</p>
+    <p class="hint" style="margin-top:14px"><b>So geht's:</b> Tische mit Maus oder Finger ziehen. Sie rasten an anderen Tischen ein – so entstehen Gruppentische.
+    Auch das Pult lässt sich verschieben.</p>
+    <p class="hint">${p.tische.length} Tische, ${plaetze} Plätze.</p>
+    <h3 style="margin-top:16px">Neu beginnen mit …</h3>
+    <div class="row">
+      <button class="small" data-a="tisch-start" data-id="reihen">Reihen</button>
+      <button class="small" data-a="tisch-start" data-id="gruppen">Gruppen</button>
+      <button class="small" data-a="tisch-start" data-id="physik">Physikraum</button>
+      <button class="small" data-a="tisch-start" data-id="leer">Leer</button>
+    </div>
+    <button class="primary" data-a="modus" data-id="setzen" style="width:100%;margin-top:18px">Fertig – Schüler setzen →</button>
+  </aside>`;
+}
+
+function nachPlanRender(){
+  const wrap = $("#sheetwrap"), sheet = $("#sheet"), sizer = $("#sheetsizer");
+  if(!wrap || !sheet || !sizer) return;
+  sheet.style.transform = "none";
+  passeNamenAn(sheet);
+  const w = sheet.offsetWidth, h = sheet.offsetHeight;
+  const z = Math.min(1.25, (wrap.clientWidth-32) / w);
+  sheet.style.transform = `scale(${z.toFixed(4)})`;
+  sizer.style.width = (w*z)+"px"; sizer.style.height = (h*z)+"px";
+}
+// Schrift verkleinern, bis der Name in den Platz passt (max. 16 pt wie in der Vorlage)
+function passeNamenAn(root){
+  root.querySelectorAll(".seat .nm").forEach(el=>{
+    const box = el.parentElement; let s = 16;
+    el.style.fontSize = s+"pt";
+    while(s>7 && (el.scrollWidth > box.clientWidth-6 || el.offsetHeight > box.clientHeight-4)){
+      s -= 0.5; el.style.fontSize = s+"pt";
+    }
+  });
+}
+window.addEventListener("resize", ()=>{ if(view.name==="plan") nachPlanRender(); });
+window.addEventListener("orientationchange", ()=>setTimeout(()=>{ if(view.name==="plan") nachPlanRender(); }, 300));
+window.addEventListener("beforeprint", ()=>{ const sh=$("#sheet"); if(sh){ sh.style.transform="none"; passeNamenAn(sh); } });
+window.addEventListener("afterprint", ()=>{ if(view.name==="plan") nachPlanRender(); });
+
+/* ---------- Sitzplan-Aktionen ---------- */
+function aktPlan(){ const k=K(view.klasseId); return [k, P(k,view.planId)]; }
+function setzeAuf(platz, quelle){
+  const [k,p] = aktPlan(); if(!p) return;
+  const [typ,id] = quelle.split(":");
+  aendern(()=>{
+    if(typ==="schueler"){
+      for(const [pl,sid] of Object.entries(p.sitze)) if(sid===id) delete p.sitze[pl];
+      p.sitze[platz] = id;
+    } else if(typ==="platz"){
+      if(id===platz) return;
+      const a = p.sitze[id], b = p.sitze[platz];
+      if(a) p.sitze[platz]=a; else delete p.sitze[platz];
+      if(b) p.sitze[id]=b; else delete p.sitze[id];
+    }
+    p.geaendert = jetzt();
+  });
+}
+function leerePlatz(platz){
+  const [,p] = aktPlan(); if(!p || !p.sitze[platz]) return;
+  aendern(()=>{ delete p.sitze[platz]; p.geaendert=jetzt(); });
+}
+function zufall(alle){
+  const [k,p] = aktPlan(); if(!p) return;
+  if(alle && Object.keys(p.sitze).length && !confirm("Alle Schüler neu zufällig verteilen? (Mit „Rückgängig“ kommst du zurück.)")) return;
+  aendern(()=>{
+    if(alle) p.sitze = {};
+    const sitzend = new Set(Object.values(p.sitze));
+    const offen = shuffle(k.schueler.filter(s=>!sitzend.has(s.id)).map(s=>s.id));
+    // Plätze von vorne (Pult) nach hinten auffüllen, innerhalb einer Reihe zufällig
+    const order = plaetzeVonVorne(p).flatMap(b=>shuffle(b.filter(id=>!p.sitze[id])));
+    offen.forEach((sid,i)=>{ if(order[i]) p.sitze[order[i]] = sid; });
+    p.geaendert = jetzt();
+    if(offen.length > order.length) setTimeout(()=>toast(`${offen.length-order.length} Schüler haben keinen Platz mehr bekommen.`),50);
+  });
+}
+
+/* ---------- Freie Anordnung: Tische bearbeiten ---------- */
+function objekte(p){
+  return [...p.tische.map(t=>{ const [w,h]=tischGroesse(t); return {id:t.id, x:t.x, y:t.y, w, h, ref:t}; }),
+          {id:"PULT", x:p.pult.x, y:p.pult.y, w:PULT_W, h:PULT_H, ref:p.pult}];
+}
+function freierPlatz(p, w, h){
+  const obj = objekte(p), rand = 4;
+  const frei = (x,y) => obj.every(o => x+w+rand <= o.x || o.x+o.w+rand <= x || y+h+rand <= o.y || o.y+o.h+rand <= y);
+  for(let y=4; y<=FL_H-h; y+=5) for(let x=4; x<=FL_W-w; x+=5) if(frei(x,y)) return [x,y];
+  return [4,4];
+}
+function umwandeln(){
+  const [,p] = aktPlan(); if(!p || istFrei(p)) return;
+  if(!confirm("Diesen Sitzplan in einen frei verschiebbaren Plan umwandeln?\n\nDie Sitzordnung bleibt erhalten. Danach kannst du alle Tische mit der Maus verschieben, drehen, löschen und neue hinzufügen.")) return;
+  aendern(()=>{
+    const {tische, map} = vorlageZuTischen(p.typ);
+    const neu = {};
+    for(const [alt, sid] of Object.entries(p.sitze)) if(map[alt]) neu[map[alt]] = sid;
+    if(p.typ==="physikraum" && !p.raum) p.raum = "Physikraum";
+    p.typ = "frei"; p.tische = tische; p.pult = pultStart(); p.sitze = neu; p.pultOben = false; p.geaendert = jetzt();
+  }, {ohneRender:true});
+  freiModus = "anordnen"; selTische = new Set(); render();
+  toast("Jetzt kannst du die Tische verschieben.");
+}
+function tischNeu(art){
+  const [,p] = aktPlan(); if(!p) return;
+  const gruppe = art==="g4" ? 2 : art==="g6" ? 3 : 0;
+  const n = gruppe || +art;
+  const [x,y] = freierPlatz(p, n*SW, gruppe ? 2*SH : SH);
+  const neu = gruppe
+    ? [{id:tid(), x, y, n, richtung:"quer"}, {id:tid(), x, y:y+SH, n, richtung:"quer"}]
+    : [{id:tid(), x, y, n, richtung:"quer"}];
+  aendern(()=>{ p.tische.push(...neu); p.geaendert = jetzt(); }, {ohneRender:true});
+  selTische = new Set(neu.map(t=>t.id)); renderMain();
+}
+const gewaehlteTische = p => p.tische.filter(t=>selTische.has(t.id));
+function inFlaeche(o){ const [w,h] = o.richtung ? tischGroesse(o) : [PULT_W,PULT_H];
+  o.x = +Math.min(Math.max(0,o.x), FL_W-w).toFixed(1); o.y = +Math.min(Math.max(0,o.y), FL_H-h).toFixed(1); }
+function tischeDrehen(){
+  const [,p] = aktPlan(); const ts = gewaehlteTische(p); if(!ts.length) return;
+  aendern(()=>{ ts.forEach(t=>{ t.richtung = t.richtung==="laengs"?"quer":"laengs"; inFlaeche(t); }); p.geaendert=jetzt(); });
+}
+function tischeKopieren(){
+  const [,p] = aktPlan(); const ts = gewaehlteTische(p); if(!ts.length) return;
+  const neu = ts.map(t=>({...t, id:tid(), x:t.x+8, y:t.y+8}));
+  neu.forEach(inFlaeche);
+  aendern(()=>{ p.tische.push(...neu); p.geaendert=jetzt(); }, {ohneRender:true});
+  selTische = new Set(neu.map(t=>t.id)); renderMain();
+}
+function tischeLoeschen(){
+  const [,p] = aktPlan(); const ts = gewaehlteTische(p); if(!ts.length) return;
+  const weg = new Set(ts.map(t=>t.id));
+  const besetzt = ts.reduce((a,t)=>a+Array.from({length:t.n},(_,i)=>p.sitze[sitzId(t,i)]).filter(Boolean).length, 0);
+  aendern(()=>{
+    p.tische = p.tische.filter(t=>!weg.has(t.id));
+    for(const pl of Object.keys(p.sitze)) if(weg.has(pl.split("-")[0])) delete p.sitze[pl];
+    p.geaendert = jetzt();
+  }, {ohneRender:true});
+  selTische = new Set(); renderMain();
+  if(besetzt) toast(`${besetzt} Schüler sind wieder ohne Platz. (Strg+Z macht es rückgängig.)`);
+}
+function tischeNeuBeginnen(art){
+  const [,p] = aktPlan(); if(!p) return;
+  if((p.tische.length || Object.keys(p.sitze).length) &&
+     !confirm("Alle Tische durch die neue Anordnung ersetzen? Die Sitzordnung wird dabei geleert. (Strg+Z macht es rückgängig.)")) return;
+  aendern(()=>{ p.tische = startTische(art); p.pult = pultStart(); p.sitze = {}; p.geaendert = jetzt(); }, {ohneRender:true});
+  selTische = new Set(); renderMain();
+}
+function markiereAuswahl(){
+  document.querySelectorAll("[data-tisch],[data-pult]").forEach(el=>
+    el.classList.toggle("tsel", selTische.has(el.dataset.tisch || "PULT")));
+}
+// Einrasten: an Rändern anderer Tische, sonst auf ein 2,5-mm-Raster
+function einrasten(p, ids, x, y, w, h){
+  const andere = objekte(p).filter(o=>!ids.has(o.id));
+  const T = 4;
+  const ueberlapp = (a1,a2,b1,b2) => Math.min(a2,b2) - Math.max(a1,b1);   // < 0 = Lücke
+  // Die beste Stelle auf einer Achse suchen (kleinste Abweichung + Strafpunkte)
+  function achse(wert, laenge, kand){
+    let best = null, score = Infinity;
+    for(const [c, strafe] of kand){ const d = Math.abs(c-wert); if(d<T && d+strafe<score){ score = d+strafe; best = c; } }
+    return best ?? Math.round(wert/2.5)*2.5;
+  }
+  // 1) Höhe: an Tische darüber/darunter anlegen, an Nachbarn daneben ausrichten
+  const ky = [];
+  for(const o of andere){
+    const ov = ueberlapp(x, x+w, o.x, o.x+o.w);
+    if(ov > 1){ ky.push([o.y+o.h,0],[o.y-h,0],[o.y,1],[o.y+o.h-h,1]); }
+    else if(ov > -15){ ky.push([o.y,0.5],[o.y+o.h-h,0.5],[o.y+o.h,3],[o.y-h,3]); }
+  }
+  const ny = achse(y, h, ky);
+  // 2) Seite (mit der neuen Höhe): in derselben Reihe anlegen, bei gestapelten Tischen bündig ausrichten
+  const kx = [];
+  for(const o of andere){
+    const ov = ueberlapp(ny, ny+h, o.y, o.y+o.h);
+    if(ov > 1){ kx.push([o.x+o.w,0],[o.x-w,0],[o.x,2],[o.x+o.w-w,2]); }
+    else if(ov > -1){ kx.push([o.x,0],[o.x+o.w-w,0],[o.x+o.w,3],[o.x-w,3]); }
+    else if(ov > -15){ kx.push([o.x,1],[o.x+o.w-w,1],[o.x+o.w,3],[o.x-w,3]); }
+  }
+  return [achse(x, w, kx), ny];
+}
+
+let zug = null;
+document.addEventListener("pointerdown", e=>{
+  if(view.name!=="plan" || freiModus!=="anordnen" || e.button!==0) return;
+  const fl = $("#flaeche"); if(!fl || !fl.contains(e.target)) return;
+  const [,p] = aktPlan(); if(!p || !istFrei(p)) return;
+  const el = e.target.closest("[data-tisch],[data-pult]");
+  if(!el){ selTische = new Set(); markiereAuswahl(); renderMain(); return; }
+  e.preventDefault();
+  const id = el.dataset.tisch || "PULT";
+  const vorher = [...selTische].join();
+  let abwaehlen = null;
+  if(e.shiftKey || e.ctrlKey || mehrfach){
+    // schon gewählt: erst beim Loslassen ohne Bewegung abwählen, damit man die Gruppe ziehen kann
+    if(selTische.has(id)) abwaehlen = id; else selTische.add(id);
+  }
+  else if(!selTische.has(id)) selTische = new Set([id]);
+  markiereAuswahl();
+  const mmpx = FL_W / fl.getBoundingClientRect().width;
+  const start = {};
+  for(const o of objekte(p)) if(selTische.has(o.id)) start[o.id] = {x:o.x, y:o.y, w:o.w, h:o.h};
+  zug = {sx:e.clientX, sy:e.clientY, mmpx, start, haupt:id, bewegt:false, dx:0, dy:0, auswahlNeu: vorher!==[...selTische].join(), pid:e.pointerId, abwaehlen};
+  try{ el.setPointerCapture(e.pointerId); }catch{}
+});
+document.addEventListener("pointermove", e=>{
+  if(!zug || e.pointerId!==zug.pid) return;
+  const rx = (e.clientX-zug.sx)*zug.mmpx, ry = (e.clientY-zug.sy)*zug.mmpx;
+  if(!zug.bewegt && Math.hypot(e.clientX-zug.sx, e.clientY-zug.sy) < 4) return;
+  zug.bewegt = true;
+  const [,p] = aktPlan(); const h0 = zug.start[zug.haupt];
+  let [nx, ny] = einrasten(p, selTische, h0.x+rx, h0.y+ry, h0.w, h0.h);
+  let dx = nx-h0.x, dy = ny-h0.y;
+  // die ganze Auswahl muss auf der Fläche bleiben
+  for(const s of Object.values(zug.start)){
+    dx = Math.min(Math.max(dx, -s.x), FL_W-s.w-s.x);
+    dy = Math.min(Math.max(dy, -s.y), FL_H-s.h-s.y);
+  }
+  zug.dx = dx; zug.dy = dy;
+  for(const [id,s] of Object.entries(zug.start)){
+    const el = id==="PULT" ? document.querySelector("[data-pult]") : document.querySelector(`[data-tisch="${id}"]`);
+    if(el){ el.style.left = (s.x+dx)+"mm"; el.style.top = (s.y+dy)+"mm"; }
+  }
+});
+document.addEventListener("pointerup", e=>{
+  if(!zug || e.pointerId!==zug.pid) return;
+  const z = zug; zug = null;
+  const [,p] = aktPlan(); if(!p) return;
+  if(z.bewegt && (z.dx || z.dy)){
+    aendern(()=>{
+      for(const o of objekte(p)) if(z.start[o.id]){
+        o.ref.x = +(z.start[o.id].x + z.dx).toFixed(1);
+        o.ref.y = +(z.start[o.id].y + z.dy).toFixed(1);
+      }
+      p.geaendert = jetzt();
+    });
+  } else {
+    if(z.abwaehlen && !z.bewegt) selTische.delete(z.abwaehlen);
+    renderMain();
+  }
+});
+document.addEventListener("pointercancel", e=>{ if(zug && e.pointerId===zug.pid){ zug = null; renderMain(); } });
+function verschiebeAuswahl(dx, dy){
+  const [,p] = aktPlan(); if(!p) return;
+  const os = objekte(p).filter(o=>selTische.has(o.id)); if(!os.length) return;
+  for(const o of os){ dx = Math.min(Math.max(dx, -o.x), FL_W-o.w-o.x); dy = Math.min(Math.max(dy, -o.y), FL_H-o.h-o.y); }
+  aendern(()=>{ os.forEach(o=>{ o.ref.x = +(o.x+dx).toFixed(1); o.ref.y = +(o.y+dy).toFixed(1); }); p.geaendert = jetzt(); });
+}
+
+/* ---------- Klicks ---------- */
+document.addEventListener("click", e=>{
+  if(Date.now() < klickSperre) return;      // direkt nach dem Ziehen keinen zusätzlichen Klick auslösen
+  const seatEl = e.target.closest(".seat");
+  const t = e.target.closest("[data-a]");
+  if(t && !(seatEl && t.dataset.a!=="platz-leeren")){
+    const a = t.dataset.a, id = t.dataset.id;
+    const k = K(view.klasseId);
+    switch(a){
+      case "klasse": zeige({name:"klasse", klasseId:id}); break;
+      case "zurueck": zeige({name:"klasse", klasseId:view.klasseId}); break;
+      case "klasse-umbenennen": {
+        const n = prompt("Neuer Name der Klasse:", k.name); if(n && n.trim()) aendern(()=>{ k.name=n.trim(); }); break; }
+      case "klasse-loeschen":
+        if(confirm(`Klasse „${k.name}“ mit allen Schülern und ${k.plaene.length} Sitzplan/-plänen wirklich löschen?`)){
+          aendern(()=>{ S.klassen = S.klassen.filter(x=>x.id!==k.id); }, {ohneRender:true}); zeige({name:"start"});
+          toast("Klasse gelöscht. Mit Strg+Z kannst du das rückgängig machen.");
+        } break;
+      case "schueler-umbenennen": {
+        const s = k.schueler.find(x=>x.id===id);
+        const n = prompt("Name ändern:", s.name); if(n && n.trim()) aendern(()=>{ s.name = normName(n); }); break; }
+      case "schueler-entfernen": {
+        const s = k.schueler.find(x=>x.id===id);
+        const inPl = k.plaene.filter(p=>Object.values(p.sitze).includes(id)).length;
+        if(confirm(`„${s.name}“ aus der Klasse entfernen?${inPl?` Der Platz in ${inPl} Sitzplan/-plänen wird dann frei.`:""}`)){
+          aendern(()=>{
+            k.schueler = k.schueler.filter(x=>x.id!==id);
+            k.plaene.forEach(p=>{ for(const [pl,sid] of Object.entries(p.sitze)) if(sid===id){ delete p.sitze[pl]; p.geaendert=jetzt(); } });
+          });
+        } break; }
+      case "plan-oeffnen": zeige({name:"plan", klasseId:k.id, planId:id}); break;
+      case "plan-kopie": {
+        const p = P(k,id); const neu = JSON.parse(JSON.stringify(p));
+        neu.id = uid(); neu.titel = p.titel+" (Kopie)"; neu.erstellt = neu.geaendert = jetzt();
+        aendern(()=>{ k.plaene.push(neu); }, {ohneRender:true});
+        zeige({name:"plan", klasseId:k.id, planId:neu.id}); toast("Kopie angelegt – du bist jetzt in der Kopie."); break; }
+      case "plan-loeschen": {
+        const p = P(k,id);
+        if(confirm(`Sitzplan „${p.titel}“ löschen?`)){
+          aendern(()=>{ k.plaene = k.plaene.filter(x=>x.id!==id); }, {ohneRender:true});
+          zeige({name:"klasse", klasseId:k.id}); toast("Sitzplan gelöscht. Strg+Z holt ihn zurück.");
+        } break; }
+      case "chip":
+        sel = (sel && sel.typ==="schueler" && sel.id===id) ? null : {typ:"schueler", id}; renderMain(); break;
+      case "platz-leeren": e.stopPropagation(); sel=null; leerePlatz(id); break;
+      case "zufall-auffuellen": zufall(false); break;
+      case "zufall-alle": zufall(true); break;
+      case "alle-leeren": {
+        const [,p] = aktPlan();
+        if(Object.keys(p.sitze).length && confirm("Alle Plätze leeren?")) aendern(()=>{ p.sitze={}; p.geaendert=jetzt(); });
+        break; }
+      case "rueckgaengig": rueckgaengig(); break;
+      case "import": importOeffnen(); break;
+      case "modus": freiModus = id; sel = null; if(id==="setzen") selTische = new Set(); renderMain(); break;
+      case "umwandeln": umwandeln(); break;
+      case "tisch-neu": tischNeu(id); break;
+      case "tisch-drehen": tischeDrehen(); break;
+      case "tisch-kopie": tischeKopieren(); break;
+      case "tisch-weg": tischeLoeschen(); break;
+      case "tisch-start": tischeNeuBeginnen(id); break;
+      case "tisch-schieben": { const d = {l:[-2.5,0], r:[2.5,0], o:[0,-2.5], u:[0,2.5]}[id]; if(d) verschiebeAuswahl(...d); break; }
+      case "mehrfach": mehrfach = !mehrfach; renderMain(); break;
+      case "auswahl-weg": sel = null; renderMain(); break;
+      case "menu": document.body.classList.add("menu-offen"); break;
+      case "menu-zu": document.body.classList.remove("menu-offen"); break;
+      case "sicherung-teilen": sicherungTeilen(); break;
+      case "drucken": sel=null; renderMain(); setTimeout(()=>window.print(), 50); break;
+      case "datei-neu": neueDatei(); break;
+      case "datei-oeffnen": dateiOeffnen(); break;
+      case "datei-verbinden": dateiVerbinden(); break;
+      case "sicherung-runter": sicherungHerunterladen(); break;
+      case "sicherung-laden": sicherungLaden(); break;
+    }
+    return;
+  }
+  if(seatEl && view.name==="plan" && freiModus!=="anordnen"){
+    const platz = seatEl.dataset.seat;
+    const [,p] = aktPlan();
+    if(sel && sel.typ==="schueler"){ const q="schueler:"+sel.id; sel=null; setzeAuf(platz,q); }
+    else if(sel && sel.typ==="platz"){ const q="platz:"+sel.id; sel=null; if(q!=="platz:"+platz) setzeAuf(platz,q); else renderMain(); }
+    else if(p.sitze[platz]){ sel={typ:"platz", id:platz}; renderMain(); }
+    return;
+  }
+});
+
+/* ---------- Formulare & Eingabefelder ---------- */
+function normName(n){
+  n = n.replace(/^\s*\d+\s*[.)]?\s+/,"").trim();
+  if(n.includes("\t")){ const [a,b] = n.split("\t").map(x=>x.trim()).filter(Boolean); if(a&&b) n = `${b} ${a}`; }
+  else if(n.includes(",")){ const [a,b] = n.split(",").map(x=>x.trim()); if(a&&b) n = `${b} ${a}`; }
+  return n.replace(/\s+/g," ").trim();
+}
+function schuelerDazu(k, namen){
+  const da = new Set(k.schueler.map(s=>s.name.toLowerCase()));
+  let neu=0, doppelt=0;
+  aendern(()=>{
+    for(const roh of namen){
+      const n = normName(roh); if(!n) continue;
+      if(da.has(n.toLowerCase())){ doppelt++; continue; }
+      da.add(n.toLowerCase()); k.schueler.push({id:uid(), name:n}); neu++;
+    }
+  });
+  toast(`${neu} Schüler hinzugefügt${doppelt?`, ${doppelt} doppelt (übersprungen)`:""}.`);
+}
+document.addEventListener("submit", e=>{
+  e.preventDefault();
+  const f = e.target, k = K(view.klasseId);
+  if(f.id==="newk"){
+    const n = $("#newkName").value.trim(); if(!n) return;
+    const neu = {id:uid(), name:n, schuljahr:aktuellesSchuljahr(), schueler:[], plaene:[]};
+    aendern(()=>{ S.klassen.push(neu); }, {ohneRender:true});
+    $("#newkName").value = ""; zeige({name:"klasse", klasseId:neu.id});
+  }
+  if(f.id==="neuschueler" || f.id==="poolneu"){
+    const n = f.name.value; if(!n.trim()) return;
+    schuelerDazu(k,[n]);
+    setTimeout(()=>{ const i=document.querySelector(`#${f.id} input`); if(i) i.focus(); },0);
+  }
+  if(f.id==="neuliste"){
+    const zeilen = f.liste.value.split(/\r?\n|;/);
+    schuelerDazu(k, zeilen);
+  }
+  if(f.id==="neuplan"){
+    const wahl = f.typ.value;
+    const frei_ = wahl.startsWith("frei-"), art = wahl.slice(5);
+    const typ = frei_ ? "frei" : wahl;
+    const standardTitel = frei_ ? ({reihen:"Reihen", gruppen:"Gruppentische", physik:"Physikraum", leer:"Eigene Anordnung"})[art] : LAYOUTS[typ].name;
+    const p = {id:uid(), typ, titel:f.titel.value.trim()||standardTitel,
+               raum:(wahl==="physikraum"||art==="physik")?"Physikraum":f.raum.value.trim(),
+               anzeige:"voll", pultOben:false, sitze:{}, erstellt:jetzt(), geaendert:jetzt()};
+    if(frei_){ p.tische = startTische(art); p.pult = pultStart(); }
+    aendern(()=>{ k.plaene.push(p); }, {ohneRender:true});
+    zeige({name:"plan", klasseId:k.id, planId:p.id}, frei_ ? "anordnen" : "setzen");
+  }
+});
+document.addEventListener("change", e=>{
+  const f = e.target.dataset && e.target.dataset.f; if(!f) return;
+  const v = e.target.value, k = K(view.klasseId);
+  if(f==="schuljahr") aendern(()=>{ k.schuljahr=v.trim(); });
+  const p = P(k, view.planId); if(!p) return;
+  if(f==="plan-titel") aendern(()=>{ p.titel=v.trim()||planArt(p); p.geaendert=jetzt(); });
+  if(f==="plan-raum") aendern(()=>{ p.raum=v.trim(); p.geaendert=jetzt(); });
+  if(f==="plan-anzeige") aendern(()=>{ p.anzeige=v; p.geaendert=jetzt(); });
+  if(f==="plan-pult") aendern(()=>{ p.pultOben = v==="oben"; p.geaendert=jetzt(); });
+});
+
+/* ---------- Namen ziehen & ablegen (Maus und Finger) ---------- */
+let namenZug = null;
+function zielUnter(x, y){
+  const el = document.elementFromPoint(x, y);
+  return el && el.closest(".seat,.pool");
+}
+function namenZugEnde(){
+  if(!namenZug) return;
+  namenZug.geist?.remove();
+  document.querySelectorAll(".over").forEach(x=>x.classList.remove("over"));
+  document.body.classList.remove("zieht");
+  namenZug = null;
+}
+document.addEventListener("pointerdown", e=>{
+  if(view.name!=="plan" || freiModus==="anordnen" || e.button!==0) return;
+  const q = e.target.closest("[data-drag]");
+  if(!q || e.target.closest(".clr")) return;
+  namenZug = {quelle:q.dataset.drag, el:q, sx:e.clientX, sy:e.clientY, pid:e.pointerId, aktiv:false, geist:null};
+});
+document.addEventListener("pointermove", e=>{
+  const z = namenZug; if(!z || e.pointerId!==z.pid) return;
+  if(!z.aktiv){
+    if(Math.hypot(e.clientX-z.sx, e.clientY-z.sy) < 8) return;
+    z.aktiv = true;
+    z.geist = document.createElement("div");
+    z.geist.className = "geist";
+    z.geist.textContent = (z.el.querySelector(".nm")||z.el).textContent.trim();
+    document.body.appendChild(z.geist);
+    document.body.classList.add("zieht");
+    try{ z.el.releasePointerCapture?.(e.pointerId); }catch{}
+  }
+  e.preventDefault();
+  z.geist.style.left = e.clientX+"px"; z.geist.style.top = e.clientY+"px";
+  const ziel = zielUnter(e.clientX, e.clientY);
+  document.querySelectorAll(".over").forEach(x=>{ if(x!==ziel) x.classList.remove("over"); });
+  if(ziel) ziel.classList.add("over");
+}, {passive:false});
+document.addEventListener("pointerup", e=>{
+  const z = namenZug; if(!z || e.pointerId!==z.pid) return;
+  if(!z.aktiv){ namenZug = null; return; }        // nur angetippt → normaler Klick
+  const ziel = zielUnter(e.clientX, e.clientY);
+  namenZugEnde();
+  klickSperre = Date.now() + 350;
+  if(!ziel) return;
+  sel = null;
+  if(ziel.classList.contains("seat")) setzeAuf(ziel.dataset.seat, z.quelle);
+  else if(z.quelle.startsWith("platz:")) leerePlatz(z.quelle.slice(6));
+  else renderMain();
+});
+document.addEventListener("pointercancel", e=>{ if(namenZug && e.pointerId===namenZug.pid) namenZugEnde(); });
+
+/* ============================================================
+   Klassenliste einlesen: Foto, PDF, Word, Excel, CSV, Text
+   Die Texterkennung läuft im Browser auf diesem Rechner.
+   Aus dem Internet geladen wird nur das Erkennungsprogramm selbst,
+   das Foto und die Namen verlassen den Rechner nicht.
+   ============================================================ */
+const CDN = {
+  tesseract: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
+  pdfjs: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",
+  pdfjsWorker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"
+};
+const skripte = {};
+function ladeSkript(url){
+  return skripte[url] ||= new Promise((res,rej)=>{
+    const s = document.createElement("script"); s.src = url; s.onload = res;
+    s.onerror = ()=>{ delete skripte[url]; s.remove(); rej(new Error("Ein Baustein konnte nicht aus dem Internet geladen werden. Bist du online? (Für Fotos und PDFs braucht das Programm einmal Internet.)")); };
+    document.head.appendChild(s);
+  });
+}
+
+let imp = null;
+function importOeffnen(){
+  imp = {klasseId:view.klasseId, zeilen:null, arbeitet:false, status:"", prozent:0, fehler:"", hinweis:"", vorschau:null, getauscht:false};
+  renderImport();
+}
+function importSchliessen(){ imp = null; $("#modal").innerHTML = ""; }
+
+function renderImport(){
+  const box = $("#modal");
+  if(!imp){ box.innerHTML = ""; return; }
+  const k = K(imp.klasseId);
+  if(!k){ importSchliessen(); return; }
+  let body = "", fuss = "";
+  if(imp.arbeitet){
+    body = `<div id="imp-status" class="hint">${esc(imp.status)}</div>
+      <div class="progress"><div id="imp-bar" style="width:${imp.prozent}%"></div></div>
+      ${imp.vorschau?`<div class="imp-vorschau" style="max-height:50vh"><img src="${imp.vorschau}" alt=""></div>`:""}`;
+    fuss = `<span class="hint">Bitte kurz warten …</span>`;
+  } else if(!imp.zeilen){
+    body = `<div class="drop" id="imp-drop">
+        <div class="big">📷</div>
+        <b>Foto oder Datei hierher ziehen</b><br>
+        oder <button class="primary" data-imp="waehlen">Foto / Datei auswählen</button><br>
+        oder ein Bild mit <b>Strg+V</b> einfügen (z. B. einen Bildschirmausschnitt)
+        <p class="hint" style="margin:14px 0 0">Möglich: Foto (JPG, PNG), PDF, Word (.docx), Excel (.xlsx), CSV oder Text.<br>
+        Das Foto bleibt auf deinem Rechner – die Texterkennung läuft hier im Browser.<br>
+        Tipp fürs Foto: Liste gerade und von oben fotografieren, gutes Licht, keine Schatten.</p>
+      </div>
+      ${imp.fehler?`<div class="imp-fehler">${esc(imp.fehler)}</div>`:""}`;
+    fuss = `<button data-imp="schliessen">Abbrechen</button>`;
+  } else {
+    const da = new Set(k.schueler.map(s=>s.name.toLowerCase()));
+    const anz = imp.zeilen.filter(z=>z.an && z.name.trim()).length;
+    body = `<div class="imp-grid ${imp.vorschau?"":"ohne"}">
+      ${imp.vorschau?`<div class="imp-vorschau"><img src="${imp.vorschau}" alt=""></div>`:""}
+      <div>
+        ${imp.hinweis?`<div class="imp-hinweis">${esc(imp.hinweis)}</div>`:""}
+        <p class="hint" style="margin-top:0">Bitte kurz prüfen: Tippfehler direkt im Feld verbessern, falsche Zeilen abhaken oder mit ✕ löschen.</p>
+        ${imp.zeilen.map((z,i)=>{
+          const schon = da.has(z.name.trim().toLowerCase());
+          return `<div class="imp-zeile ${z.an?"":"aus"}">
+            <input type="checkbox" data-imp-an="${i}" ${z.an?"checked":""} title="übernehmen">
+            <input type="text" data-imp-name="${i}" value="${esc(z.name)}">
+            ${schon?`<span class="tag">schon in der Klasse</span>`:""}
+            <button data-imp="weg" data-i="${i}" title="Zeile löschen">✕</button></div>`;}).join("")}
+        <div class="row" style="margin-top:8px">
+          <button class="small" data-imp="plus">+ Zeile</button>
+          <button class="small" data-imp="tauschen" title="Aus „Müller Anna“ wird „Anna Müller“ – und zurück">⇄ Vor- und Nachname tauschen</button>
+          <button class="small" data-imp="neu">Andere Datei / anderes Foto</button>
+        </div>
+      </div></div>`;
+    fuss = `<button class="primary" data-imp="uebernehmen" ${anz?"":"disabled"}>${anz} Schüler in Klasse ${esc(k.name)} übernehmen</button>
+      <button data-imp="schliessen">Abbrechen</button>
+      <span class="hint" style="margin-left:auto">${imp.zeilen.length} Zeilen erkannt</span>`;
+  }
+  box.innerHTML = `<div class="modal-bg"><div class="modal" role="dialog" aria-label="Klassenliste einlesen">
+    <div class="modal-h"><h2>Klassenliste einlesen – Klasse ${esc(k.name)}</h2>
+      ${imp.arbeitet?"":`<button class="x" data-imp="schliessen" title="Schließen">✕</button>`}</div>
+    <div class="modal-b">${body}</div>
+    <div class="modal-f">${fuss}</div></div></div>`;
+}
+function zeigeFortschritt(){
+  const b = $("#imp-bar"); if(b) b.style.width = imp.prozent+"%";
+  const s = $("#imp-status"); if(s) s.textContent = imp.status;
+}
+
+/* Klicks und Eingaben im Fenster */
+$("#modal").addEventListener("click", e=>{
+  if(!imp) return;
+  if(e.target.classList.contains("modal-bg") && !imp.arbeitet && !imp.zeilen){ importSchliessen(); return; }
+  const b = e.target.closest("[data-imp]"); if(!b) return;
+  const a = b.dataset.imp, i = +b.dataset.i;
+  if(a==="schliessen"){
+    if(imp.zeilen && imp.zeilen.length && !confirm("Fenster schließen? Die erkannten Namen werden nicht übernommen.")) return;
+    importSchliessen();
+  }
+  if(a==="waehlen"){ $("#impFile").value=""; $("#impFile").click(); }
+  if(a==="neu"){ imp.zeilen=null; imp.vorschau=null; imp.fehler=""; imp.hinweis=""; renderImport(); }
+  if(a==="weg"){ imp.zeilen.splice(i,1); renderImport(); }
+  if(a==="plus"){ imp.zeilen.push({name:"",an:true}); renderImport(); const f=document.querySelectorAll("[data-imp-name]"); f[f.length-1]?.focus(); }
+  if(a==="tauschen"){
+    imp.getauscht = !imp.getauscht;
+    imp.zeilen.forEach(z=>z.name = tauscheName(z.name, imp.getauscht));
+    imp.hinweis = ""; renderImport();
+  }
+  if(a==="uebernehmen"){
+    const k = K(imp.klasseId);
+    const namen = imp.zeilen.filter(z=>z.an && z.name.trim()).map(z=>z.name);
+    importSchliessen();
+    schuelerDazu(k, namen);
+  }
+});
+$("#modal").addEventListener("input", e=>{
+  if(!imp || !imp.zeilen) return;
+  const t = e.target;
+  if(t.dataset.impName!==undefined){ imp.zeilen[+t.dataset.impName].name = t.value; }
+  if(t.dataset.impAn!==undefined){ imp.zeilen[+t.dataset.impAn].an = t.checked; t.closest(".imp-zeile").classList.toggle("aus", !t.checked); }
+  const anz = imp.zeilen.filter(z=>z.an && z.name.trim()).length;
+  const ub = document.querySelector('[data-imp="uebernehmen"]');
+  if(ub){ ub.disabled = !anz; ub.textContent = `${anz} Schüler in Klasse ${K(imp.klasseId).name} übernehmen`; }
+});
+$("#modal").addEventListener("dragover", e=>{ if(!imp||imp.arbeitet) return; e.preventDefault(); $("#imp-drop")?.classList.add("over"); });
+$("#modal").addEventListener("dragleave", e=>{ if(e.target.id==="imp-drop") e.target.classList.remove("over"); });
+$("#modal").addEventListener("drop", e=>{
+  if(!imp||imp.arbeitet) return; e.preventDefault();
+  const f = e.dataTransfer.files[0]; if(f) importDatei(f);
+});
+$("#impFile").addEventListener("change", e=>{ const f=e.target.files[0]; if(f) importDatei(f); });
+document.addEventListener("paste", e=>{
+  if(!imp || imp.arbeitet || imp.zeilen) return;
+  const f = [...(e.clipboardData?.files||[])].find(x=>x.type.startsWith("image/"));
+  if(f){ e.preventDefault(); importDatei(f); }
+});
+
+function tauscheName(n, vorwaerts){
+  const w = n.trim().split(/\s+/); if(w.length<2) return n.trim();
+  return vorwaerts ? [...w.slice(1), w[0]].join(" ") : [w[w.length-1], ...w.slice(0,-1)].join(" ");
+}
+
+/* Datei einlesen */
+async function importDatei(file){
+  imp.arbeitet = true; imp.fehler = ""; imp.hinweis = ""; imp.prozent = 0; imp.vorschau = null; imp.getauscht = false;
+  imp.status = "Datei wird gelesen …"; renderImport();
+  try{
+    const n = file.name.toLowerCase();
+    let zeilen;
+    if(file.type.startsWith("image/") || /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/.test(n)) zeilen = await ausBild(file);
+    else if(n.endsWith(".pdf")) zeilen = await ausPdf(file);
+    else if(n.endsWith(".docx")) zeilen = await ausDocx(file);
+    else if(n.endsWith(".xlsx")) zeilen = await ausXlsx(file);
+    else if(/\.(csv|tsv|txt)$/.test(n) || file.type.startsWith("text/")) zeilen = (await leseText(file)).split(/\r?\n/);
+    else if(/\.(doc|xls)$/.test(n)) throw new Error("Alte Word-/Excel-Dateien (.doc, .xls) kann ich nicht lesen. Bitte in Word bzw. Excel als .docx oder .xlsx speichern – oder als PDF.");
+    else throw new Error("Dieses Dateiformat kenne ich nicht. Möglich sind: Foto (JPG, PNG), PDF, Word (.docx), Excel (.xlsx), CSV oder Text.");
+    const {namen, getauscht} = namenAusZeilen(zeilen);
+    if(!namen.length) throw new Error("Ich habe in der Datei keine Namen gefunden. Bei Fotos: bitte schärfer, gerader und mit mehr Licht fotografieren.");
+    const k = K(imp.klasseId);
+    const da = new Set(k.schueler.map(s=>s.name.toLowerCase()));
+    imp.zeilen = namen.map(nm=>({name:nm, an:!da.has(nm.toLowerCase())}));
+    imp.getauscht = getauscht;
+    if(getauscht) imp.hinweis = "In der Liste stand der Nachname vorne. Ich habe das schon umgedreht (Vorname Nachname). Falls das nicht stimmt: „⇄ Vor- und Nachname tauschen“.";
+  }catch(e){
+    console.error(e); imp.zeilen = null; imp.fehler = e.message || String(e);
+  }
+  imp.arbeitet = false;
+  renderImport();
+}
+
+async function leseText(file){
+  const buf = await file.arrayBuffer();
+  try{ return new TextDecoder("utf-8",{fatal:true}).decode(buf); }
+  catch{ return new TextDecoder("windows-1252").decode(buf); }
+}
+
+/* Fotos: Bild aufbereiten und Text erkennen */
+async function bildAufbereiten(quelle){
+  const bmp = quelle instanceof HTMLCanvasElement ? quelle : await createImageBitmap(quelle);
+  const lang = Math.max(bmp.width, bmp.height);
+  const f = lang > 2600 ? 2600/lang : lang < 1400 ? 1400/lang : 1;
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width*f); c.height = Math.round(bmp.height*f);
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height);
+  ctx.filter = "grayscale(1) contrast(1.35)";
+  ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  return c;
+}
+async function texterkennung(canvas, teil){
+  imp.status = "Texterkennung wird geladen (beim ersten Mal 10–30 Sekunden) …"; zeigeFortschritt();
+  await ladeSkript(CDN.tesseract);
+  const worker = await Tesseract.createWorker("deu", 1, {
+    logger: m=>{
+      if(m.status==="recognizing text"){ imp.status = `Text wird erkannt${teil?" ("+teil+")":""} …`; imp.prozent = Math.round(m.progress*100); }
+      else if(m.status){ imp.status = "Texterkennung wird vorbereitet …"; imp.prozent = Math.round((m.progress||0)*100); }
+      zeigeFortschritt();
+    }
+  });
+  try{ const {data} = await worker.recognize(canvas); return data.text || ""; }
+  finally{ await worker.terminate(); }
+}
+async function ausBild(file){
+  let c;
+  try{ c = await bildAufbereiten(file); }
+  catch{
+    const heic = /\.(heic|heif)$/i.test(file.name) || /hei[cf]/.test(file.type);
+    throw new Error(heic
+      ? "Fotos im iPhone-Format HEIC kann dieser Browser nicht öffnen. Auf dem iPad geht es direkt. Am Rechner: Foto als JPG schicken (z. B. per Mail oder OneDrive) oder am iPhone unter Einstellungen › Kamera › Formate „Maximale Kompatibilität“ wählen."
+      : "Das Bild konnte nicht geöffnet werden.");
+  }
+  imp.vorschau = c.toDataURL("image/jpeg", .85); renderImport();
+  return (await texterkennung(c)).split(/\r?\n/);
+}
+
+/* PDF: Text auslesen, bei eingescannten PDFs Texterkennung */
+async function ausPdf(file){
+  imp.status = "PDF wird geöffnet …"; zeigeFortschritt();
+  await ladeSkript(CDN.pdfjs);
+  const lib = window.pdfjsLib;
+  lib.GlobalWorkerOptions.workerSrc = CDN.pdfjsWorker;
+  const pdf = await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const seiteBild = async (nr, scale)=>{
+    const page = await pdf.getPage(nr); const vp = page.getViewport({scale});
+    const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+    const ctx = c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height);
+    await page.render({canvasContext:ctx, viewport:vp}).promise; return c;
+  };
+  let zeilen = [];
+  for(let i=1;i<=pdf.numPages;i++){
+    const tc = await (await pdf.getPage(i)).getTextContent();
+    zeilen.push(...pdfZeilen(tc.items));
+  }
+  // Vorschau der ersten Seite – darf das Einlesen nie aufhalten
+  const mitFrist = (pr, ms) => Promise.race([pr, new Promise((_,rej)=>setTimeout(()=>rej(new Error("Zeit abgelaufen")), ms))]);
+  try{ imp.vorschau = (await mitFrist(seiteBild(1, 1.4), 8000)).toDataURL("image/jpeg", .85); renderImport(); }catch(e){ console.warn("Keine PDF-Vorschau:", e); }
+  if(zeilen.join("").replace(/\s/g,"").length < 15){
+    // eingescanntes PDF ohne Text → Seiten als Bild erkennen (höchstens 4 Seiten)
+    zeilen = [];
+    const n = Math.min(pdf.numPages, 4);
+    for(let i=1;i<=n;i++){
+      imp.status = "Eingescanntes PDF – Seite wird als Bild vorbereitet …"; zeigeFortschritt();
+      const c = await bildAufbereiten(await mitFrist(seiteBild(i, 2.5), 30000));
+      zeilen.push(...(await texterkennung(c, n>1?`Seite ${i} von ${n}`:"")).split(/\r?\n/));
+    }
+  }
+  return zeilen;
+}
+function pdfZeilen(items){
+  const reihen = [];
+  for(const it of items){
+    if(!it.str || !it.str.trim()) continue;
+    const x = it.transform[4], y = it.transform[5];
+    let r = reihen.find(r=>Math.abs(r.y-y) < 3);
+    if(!r){ r = {y, teile:[]}; reihen.push(r); }
+    r.teile.push({x, s:it.str, w:it.width||0});
+  }
+  reihen.sort((a,b)=>b.y-a.y);
+  return reihen.map(r=>{
+    r.teile.sort((a,b)=>a.x-b.x);
+    let out = "", ende = null;
+    for(const t of r.teile){
+      if(ende!==null){ const luecke = t.x-ende; if(luecke > 12) out += "\t"; else if(luecke > 1 && !/\s$/.test(out) && !/^\s/.test(t.s)) out += " "; }
+      out += t.s; ende = t.x + t.w;
+    }
+    return out;
+  });
+}
+
+/* Word und Excel (.docx / .xlsx sind ZIP-Archive) */
+async function zipOeffnen(file){
+  const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
+  let e = -1;
+  for(let i=buf.length-22; i>=Math.max(0, buf.length-65558); i--){ if(dv.getUint32(i,true)===0x06054b50){ e=i; break; } }
+  if(e<0) throw new Error("Die Datei ist beschädigt oder keine echte Word-/Excel-Datei.");
+  const anzahl = dv.getUint16(e+10,true); let p = dv.getUint32(e+16,true); const dateien = {};
+  for(let i=0;i<anzahl;i++){
+    const methode = dv.getUint16(p+10,true), groesse = dv.getUint32(p+20,true);
+    const nl = dv.getUint16(p+28,true), xl = dv.getUint16(p+30,true), kl = dv.getUint16(p+32,true), off = dv.getUint32(p+42,true);
+    dateien[new TextDecoder().decode(buf.subarray(p+46, p+46+nl))] = {methode, groesse, off};
+    p += 46+nl+xl+kl;
+  }
+  return async name=>{
+    const f = dateien[name]; if(!f) return null;
+    const start = f.off + 30 + dv.getUint16(f.off+26,true) + dv.getUint16(f.off+28,true);
+    const daten = buf.subarray(start, start+f.groesse);
+    if(f.methode===0) return new TextDecoder().decode(daten);
+    const strom = new Blob([daten]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new TextDecoder().decode(await new Response(strom).arrayBuffer());
+  };
+}
+const xmlDoc = t => new DOMParser().parseFromString(t, "application/xml");
+async function ausDocx(file){
+  const hole = await zipOeffnen(file);
+  const xml = await hole("word/document.xml");
+  if(!xml) throw new Error("In dieser Word-Datei habe ich keinen Text gefunden.");
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const doc = xmlDoc(xml), zeilen = [];
+  const text = el => [...el.getElementsByTagNameNS(W,"t")].map(t=>t.textContent).join("");
+  const kinder = (el,name) => [...el.children].filter(c=>c.localName===name);
+  (function lauf(el){
+    for(const c of el.children){
+      if(c.localName==="tbl"){
+        for(const tr of kinder(c,"tr")) zeilen.push(kinder(tr,"tc").map(tc=>[...tc.getElementsByTagNameNS(W,"p")].map(text).join(" ").trim()).join("\t"));
+      } else if(c.localName==="p") zeilen.push(text(c));
+      else if(c.localName==="sdt" || c.localName==="sdtContent") lauf(c);
+    }
+  })(doc.getElementsByTagNameNS(W,"body")[0]);
+  return zeilen;
+}
+async function ausXlsx(file){
+  const hole = await zipOeffnen(file);
+  const ss = await hole("xl/sharedStrings.xml");
+  const texte = ss ? [...xmlDoc(ss).getElementsByTagName("si")].map(si=>[...si.getElementsByTagName("t")].map(t=>t.textContent).join("")) : [];
+  const blatt = await hole("xl/worksheets/sheet1.xml");
+  if(!blatt) throw new Error("In dieser Excel-Datei habe ich keine Tabelle gefunden.");
+  const spalte = ref => { let n=0; for(const ch of (ref.match(/^[A-Z]+/)||["A"])[0]) n = n*26 + ch.charCodeAt(0)-64; return n-1; };
+  return [...xmlDoc(blatt).getElementsByTagName("row")].map(row=>{
+    const zellen = [];
+    for(const c of row.getElementsByTagName("c")){
+      const t = c.getAttribute("t"), v = c.getElementsByTagName("v")[0]?.textContent ?? "";
+      const wert = t==="s" ? (texte[+v]??"") : t==="inlineStr" ? [...c.getElementsByTagName("t")].map(x=>x.textContent).join("") : v;
+      zellen[spalte(c.getAttribute("r")||"A")] = wert;
+    }
+    return [...zellen].map(z=>z??"").join("\t");
+  });
+}
+
+/* Aus Textzeilen die Namen heraussuchen */
+const KOPF = new Set(("klasse klassenliste liste schuljahr seite name namen vorname vornamen nachname nachnamen familienname rufname "+
+  "geburtsdatum geb geboren datum nr nummer lfd schüler schülerin schülerinnen schueler klassenlehrer klassenlehrerin klassenleitung "+
+  "lehrer lehrerin telefon tel anschrift adresse straße strasse plz wohnort email e-mail unterschrift bemerkung bemerkungen religion "+
+  "konfession geschlecht summe anzahl gesamt stand realschule gymnasium gesamtschule grundschule schule kurs fach note noten stundenplan").split(" "));
+const PARTIKEL = new Set("von van der den de del della da di du dos el al la le ter ten zu bin ibn y".split(" "));
+function namenAusZeilen(zeilen){
+  const ergebnis = []; let nachnameZuerst = null, komma = 0;
+  const saeubere = c => c
+    .replace(/\S+@\S+/g," ")
+    .replace(/\b\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/g," ")
+    .replace(/\d+/g," ")
+    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿĀ-žḀ-ỿ'’\-, ]/g," ")
+    .replace(/\s+/g," ").trim();
+  const istWort = w => (/^[A-ZÀ-ÖØ-ÞĀ-ŽḀ-Ỿ]/.test(w) && w.replace(/[^A-Za-zÀ-ÖØ-öø-ÿĀ-žḀ-ỿ]/g,"").length>=2) || PARTIKEL.has(w);
+  const schoen = w => (w.length>2 && w===w.toUpperCase()) ? w.split("-").map(t=>t.charAt(0)+t.slice(1).toLowerCase()).join("-") : w;
+  for(const roh of zeilen){
+    if(!roh || !roh.trim()) continue;
+    const zellen = roh.replace(/[;|]/g,"\t").replace(/ {2,}/g,"\t").split("\t").map(saeubere).filter(Boolean);
+    if(!zellen.length) continue;
+    const woerter = zellen.join(" ").toLowerCase().split(/[\s,]+/);
+    if(woerter.some(w=>KOPF.has(w))){
+      // Kopfzeile: Reihenfolge der Spalten merken
+      const iv = woerter.findIndex(w=>w.startsWith("vorname")||w==="rufname");
+      const inn = woerter.findIndex(w=>w.startsWith("nachname")||w==="familienname"||w==="name");
+      if(iv>=0 && inn>=0) nachnameZuerst = inn < iv;
+      continue;
+    }
+    let name = null;
+    const mitKomma = zellen.find(z=>/[A-Za-zÀ-ž]\s*,\s*[A-Za-zÀ-ž]/.test(z));
+    if(mitKomma){
+      const [a,b] = mitKomma.split(",").map(s=>s.trim());
+      name = `${b} ${a}`; komma++;
+    } else {
+      const namensZellen = zellen.map(z=>z.replace(/,/g," ").split(" ").filter(istWort).join(" ")).filter(Boolean);
+      if(!namensZellen.length) continue;
+      // zwei Spalten (z. B. Nachname | Vorname) → als Spalten merken, damit „von Berg“ zusammenbleibt
+      const sp = namensZellen.slice(0,2).map(z=>z.split(/\s+/).map(schoen).join(" "));
+      if(sp.length===2){
+        if(nachnameZuerst===true) name = `${sp[1]} ${sp[0]}`;
+        else if(nachnameZuerst===null) name = {n:`${sp[0]} ${sp[1]}`, offen:true, spalten:sp};
+        else name = `${sp[0]} ${sp[1]}`;
+      } else {
+        if(nachnameZuerst===true) name = tauscheName(sp[0], true);
+        else if(nachnameZuerst===null) name = {n:sp[0], offen:true};
+        else name = sp[0];
+      }
+    }
+    const text = typeof name==="string" ? name : name.n;
+    const w = text.split(/\s+/).filter(x=>istWort(x)).map(schoen);
+    if(w.length<1 || w.length>5 || w.every(x=>PARTIKEL.has(x))) continue;
+    ergebnis.push({name:w.join(" "), offen: typeof name!=="string", spalten: name.spalten});
+  }
+  // Steht der Nachname vorne? Erkennbar daran, dass die Liste nach dem ersten Wort sortiert ist
+  let getauscht = false;
+  const offen = ergebnis.filter(e=>e.offen && e.name.includes(" "));
+  const dreh = e => e.name = e.spalten ? `${e.spalten[1]} ${e.spalten[0]}` : tauscheName(e.name, true);
+  const vorne = e => e.spalten ? e.spalten[0] : e.name.split(" ")[0];
+  const hinten = e => e.spalten ? e.spalten[1] : nachname(e.name);
+  if(nachnameZuerst===true){ offen.forEach(dreh); getauscht = true; }
+  else if(nachnameZuerst===null && offen.length>=4){
+    const sortiert = arr => { let ok=0; for(let i=1;i<arr.length;i++) if(arr[i-1].localeCompare(arr[i],"de")<=0) ok++; return ok/(arr.length-1); };
+    const v = sortiert(offen.map(vorne)), h = sortiert(offen.map(hinten));
+    if(v > 0.8 && v > h + 0.15){ offen.forEach(dreh); getauscht = true; }
+  }
+  // Doppelte entfernen; einzelne Wörter nur, wenn es sonst kaum etwas gibt
+  const voll = ergebnis.filter(e=>e.name.includes(" "));
+  const liste = (voll.length >= Math.max(2, ergebnis.length/3) ? voll : ergebnis).map(e=>e.name);
+  const gesehen = new Set();
+  return {namen: liste.filter(n=>{ const k=n.toLowerCase(); if(gesehen.has(k)) return false; gesehen.add(k); return true; }), getauscht};
+}
+
+/* ---------- Tastatur ---------- */
+document.addEventListener("keydown", e=>{
+  const imFeld = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="z" && !imFeld){ e.preventDefault(); rueckgaengig(); }
+  if(e.key==="Escape" && imp && !imp.arbeitet){ importSchliessen(); return; }
+  if(view.name==="plan" && freiModus==="anordnen" && !imFeld && !imp && selTische.size){
+    const schritt = e.shiftKey ? 5 : 1;
+    const pfeil = {ArrowLeft:[-schritt,0], ArrowRight:[schritt,0], ArrowUp:[0,-schritt], ArrowDown:[0,schritt]}[e.key];
+    if(pfeil){ e.preventDefault(); verschiebeAuswahl(...pfeil); return; }
+    if(e.key==="r" || e.key==="R"){ e.preventDefault(); tischeDrehen(); return; }
+    if(e.key==="Delete" || e.key==="Backspace"){ e.preventDefault(); tischeLoeschen(); return; }
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="d"){ e.preventDefault(); tischeKopieren(); return; }
+    if(e.key==="Escape"){ selTische = new Set(); renderMain(); return; }
+  }
+  if(e.key==="Escape" && sel){ sel=null; renderMain(); }
+  if((e.key==="Delete"||e.key==="Backspace") && !imFeld && sel && sel.typ==="platz"){ const pl=sel.id; sel=null; leerePlatz(pl); }
+});
+
+/* ---------- Start ---------- */
+render();
+// Den Browser bitten, die Daten nicht von selbst zu löschen (wichtig auf iPad/iPhone)
+try{ navigator.storage?.persist?.(); }catch{}
+// Als App auf dem Home-Bildschirm: Offline-Unterstützung (nur wenn über eine Internetadresse geöffnet)
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  navigator.serviceWorker.register("sw.js").catch(e=>console.warn("Kein Offline-Modus:", e));
+}
+(async ()=>{
+  if(!fsOk) return;
+  try{
+    const h = await idbGet("datei");
+    if(h){
+      datei = h;
+      if(await h.queryPermission({mode:"readwrite"})==="granted"){ dateiVerbunden=true; await abgleichen(); }
+    }
+  }catch(e){ console.error(e); }
+  renderSpeicher();
+})();
+</script>
+</body>
+</html>

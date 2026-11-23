@@ -1,0 +1,17 @@
+{
+  "name": "Sitzplaner",
+  "short_name": "Sitzplaner",
+  "description": "Sitzpläne für Klassen anlegen, Tische anordnen und Schüler setzen.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f5f7",
+  "theme_color": "#1f2a3a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
