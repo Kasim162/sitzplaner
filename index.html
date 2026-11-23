@@ -333,7 +333,7 @@ function bauKlassenraum(){
       seats.push({id:`k${i}-${b}`,row:r,col:b,bd:{t:"S",l:"n",b:"S",r:"S"}});
     });
   }
-  return {name:"Klassenraum", titel:"Sitzplan", mitRaum:true, cols, rows, seats};
+  return {name:"Reihen", titel:"Sitzplan", mitRaum:true, cols, rows, seats};
 }
 function bauPhysikraum(){
   // 4 Blöcke: Wandplätze links/rechts (übereinander), in der Mitte zwei Zweiertische
@@ -351,7 +351,7 @@ function bauPhysikraum(){
       seats.push({id:`p${b}-${y}`,row:B,col:y,bd:{t:"S",l:"n",b:"S",r:"S"}});
     });
   }
-  return {name:"Physikraum", titel:"Sitzplan Physikraum", mitRaum:false, cols, rows, seats};
+  return {name:"U-Form", titel:"Sitzplan Physikraum", mitRaum:false, cols, rows, seats};
 }
 const LAYOUTS = {klassenraum: bauKlassenraum(), physikraum: bauPhysikraum()};
 for(const L of Object.values(LAYOUTS)){
@@ -406,7 +406,7 @@ function startTische(art){
 
 // Infos zu einem Plan, egal ob Vorlage oder frei
 const istFrei = p => p.typ==="frei";
-const planArt = p => istFrei(p) ? "Frei angeordnet" : LAYOUTS[p.typ].name;
+const planArt = p => istFrei(p) ? "Offen" : LAYOUTS[p.typ].name;
 const mitRaum = p => istFrei(p) || LAYOUTS[p.typ].mitRaum;
 function planPlaetze(p){
   if(!istFrei(p)) return LAYOUTS[p.typ].seats.map(s=>s.id);
@@ -760,14 +760,9 @@ function htmlKlasse(k){
         <details class="neuplan" ${plaene.length?"":"open"}><summary>+ Neuer Sitzplan</summary>
         <form id="neuplan" class="row" style="align-items:flex-end;margin-top:10px">
           <label class="f">Vorlage<select name="typ">
-            <optgroup label="Feste Vorlagen">
-              <option value="klassenraum">Klassenraum (4 Reihen, 32 Plätze)</option>
-              <option value="physikraum">Physikraum (32 Plätze)</option></optgroup>
-            <optgroup label="Tische frei verschieben – Start mit …">
-              <option value="frei-reihen">… Reihen (wie Klassenraum)</option>
-              <option value="frei-gruppen">… Gruppentischen (8 × 4 Plätze)</option>
-              <option value="frei-physik">… Physikraum</option>
-              <option value="frei-leer">… leerer Fläche</option></optgroup></select></label>
+              <option value="klassenraum">Reihen</option>
+              <option value="physikraum">U-Form (Physikraum)</option>
+              <option value="frei-gruppen">Offen – Tische selbst schieben</option></select></label>
           <label class="f">Name<input name="titel" placeholder="z. B. Mathe" style="width:150px"></label>
           <input type="hidden" name="raum" value="">
           <button class="primary" type="submit">Anlegen</button>
@@ -937,8 +932,8 @@ function htmlTischPalette(p){
     <details class="klein"><summary>Neu beginnen …</summary>
       <div class="row" style="margin-top:6px">
         <button class="small" data-a="tisch-start" data-id="reihen">Reihen</button>
+        <button class="small" data-a="tisch-start" data-id="physik">U-Form</button>
         <button class="small" data-a="tisch-start" data-id="gruppen">Gruppen</button>
-        <button class="small" data-a="tisch-start" data-id="physik">Physikraum</button>
         <button class="small" data-a="tisch-start" data-id="leer">Leer</button>
       </div></details>
     <p class="hint leise">${p.tische.length} Tische · ${plaetze} Plätze</p>
@@ -1310,7 +1305,7 @@ document.addEventListener("submit", e=>{
     const wahl = f.typ.value;
     const frei_ = wahl.startsWith("frei-"), art = wahl.slice(5);
     const typ = frei_ ? "frei" : wahl;
-    const standardTitel = frei_ ? ({reihen:"Reihen", gruppen:"Gruppentische", physik:"Physikraum", leer:"Eigene Anordnung"})[art] : LAYOUTS[typ].name;
+    const standardTitel = frei_ ? "Offen" : LAYOUTS[typ].name;
     const p = {id:uid(), typ, titel:f.titel.value.trim()||standardTitel,
                raum:(wahl==="physikraum"||art==="physik")?"Physikraum":f.raum.value.trim(),
                anzeige:"voll", pultOben:false, sitze:{}, erstellt:jetzt(), geaendert:jetzt()};

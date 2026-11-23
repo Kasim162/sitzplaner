@@ -1,7 +1,7 @@
 /* Sitzplaner – Offline-Unterstützung für die App auf dem Home-Bildschirm.
    Es wird nur das Programm selbst zwischengespeichert, niemals Schülerdaten
    (die liegen im Speicher des Browsers auf dem Gerät). */
-const CACHE = "sitzplaner-v4";
+const CACHE = "sitzplaner-v5";
 const DATEIEN = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", e=>{
