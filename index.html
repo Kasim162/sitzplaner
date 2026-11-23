@@ -1456,13 +1456,14 @@ async function importDatei(file){
     else if(/\.(csv|tsv|txt)$/.test(n) || file.type.startsWith("text/")) zeilen = (await leseText(file)).split(/\r?\n/);
     else if(/\.(doc|xls)$/.test(n)) throw new Error("Alte Word-/Excel-Dateien (.doc, .xls) kann ich nicht lesen. Bitte in Word bzw. Excel als .docx oder .xlsx speichern – oder als PDF.");
     else throw new Error("Dieses Dateiformat kenne ich nicht. Möglich sind: Foto (JPG, PNG), PDF, Word (.docx), Excel (.xlsx), CSV oder Text.");
-    const {namen, getauscht} = namenAusZeilen(zeilen);
+    const {namen, getauscht, sitzplan} = namenAusZeilen(zeilen);
     if(!namen.length) throw new Error("Ich habe in der Datei keine Namen gefunden. Bei Fotos: bitte schärfer, gerader und mit mehr Licht fotografieren.");
     const k = K(imp.klasseId);
     const da = new Set(k.schueler.map(s=>s.name.toLowerCase()));
     imp.zeilen = namen.map(nm=>({name:nm, an:!da.has(nm.toLowerCase())}));
     imp.getauscht = getauscht;
     if(getauscht) imp.hinweis = "In der Liste stand der Nachname vorne. Ich habe das schon umgedreht (Vorname Nachname). Falls das nicht stimmt: „⇄ Vor- und Nachname tauschen“.";
+    if(sitzplan) imp.hinweis = "Das sieht aus wie ein Sitzplan: Jeder Platz wurde als eigener Name übernommen. Fehlen Nachnamen, kannst du sie hier direkt ergänzen.";
   }catch(e){
     console.error(e); imp.zeilen = null; imp.fehler = e.message || String(e);
   }
@@ -1485,10 +1486,51 @@ async function bildAufbereiten(quelle){
   c.width = Math.round(bmp.width*f); c.height = Math.round(bmp.height*f);
   const ctx = c.getContext("2d");
   ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height);
-  ctx.filter = "grayscale(1) contrast(1.35)";
+  // Helle Schrift auf dunklem Grund (z. B. Tafelbild, dunkle Folie)? Dann Farben umdrehen.
+  const dunkel = mittlereHelligkeit(bmp) < 120;
+  ctx.filter = dunkel ? "grayscale(1) invert(1) contrast(1.3)" : "grayscale(1) contrast(1.35)";
   ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  ctx.filter = "none";
+  linienEntfernen(c);
   return c;
 }
+// Lange gerade Linien (Tischrahmen, Tabellenlinien) weiß übermalen – sie stören die Texterkennung.
+// Buchstaben bleiben stehen, weil ihre Striche viel kürzer sind.
+function linienEntfernen(c){
+  const ctx = c.getContext("2d"), W = c.width, H = c.height;
+  const bild = ctx.getImageData(0, 0, W, H), d = bild.data;
+  const dunkel = new Uint8Array(W*H);
+  for(let i=0, p=0; i<d.length; i+=4, p++) dunkel[p] = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114) < 140 ? 1 : 0;
+  const weg = new Uint8Array(W*H);
+  const minLauf = Math.max(40, Math.round(Math.min(W, H) * 0.06));
+  for(let y=0; y<H; y++){                    // waagerechte Linien
+    let start = -1;
+    for(let x=0; x<=W; x++){
+      const an = x<W && dunkel[y*W+x];
+      if(an && start<0) start = x;
+      if(!an && start>=0){ if(x-start >= minLauf) for(let k=start; k<x; k++) weg[y*W+k] = 1; start = -1; }
+    }
+  }
+  for(let x=0; x<W; x++){                    // senkrechte Linien
+    let start = -1;
+    for(let y=0; y<=H; y++){
+      const an = y<H && dunkel[y*W+x];
+      if(an && start<0) start = y;
+      if(!an && start>=0){ if(y-start >= minLauf) for(let k=start; k<y; k++) weg[k*W+x] = 1; start = -1; }
+    }
+  }
+  for(let p=0; p<W*H; p++) if(weg[p]){ const i = p*4; d[i] = d[i+1] = d[i+2] = 255; }
+  ctx.putImageData(bild, 0, 0);
+}
+function mittlereHelligkeit(bild){
+  const k = document.createElement("canvas"); k.width = 64; k.height = 64;
+  const x = k.getContext("2d"); x.drawImage(bild, 0, 0, 64, 64);
+  const d = x.getImageData(0, 0, 64, 64).data; let s = 0;
+  for(let i=0;i<d.length;i+=4) s += 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+  return s / (d.length/4);
+}
+// Texterkennung → Textzeilen. Wörter, die weit auseinander stehen (andere Spalte / anderer Tisch),
+// werden durch einen Tabulator getrennt, damit sie später nicht zu einem Namen zusammenwachsen.
 async function texterkennung(canvas, teil){
   imp.status = "Texterkennung wird geladen (beim ersten Mal 10–30 Sekunden) …"; zeigeFortschritt();
   await ladeSkript(CDN.tesseract);
@@ -1499,8 +1541,36 @@ async function texterkennung(canvas, teil){
       zeigeFortschritt();
     }
   });
-  try{ const {data} = await worker.recognize(canvas); return data.text || ""; }
+  try{
+    // „Verstreuter Text“: findet Namen auch in Tabellen und Sitzplänen mit Linien
+    await worker.setParameters({tessedit_pageseg_mode: "11"});
+    const {data} = await worker.recognize(canvas, {}, {text:true, blocks:true});
+    const woerter = [];
+    for(const b of data.blocks||[]) for(const p of b.paragraphs||[]) for(const l of p.lines||[]) for(const w of l.words||[]){
+      const t = (w.text||"").trim();
+      if(/[A-Za-zÀ-ÖØ-öø-ÿĀ-ž]{2,}/.test(t)) woerter.push({t, x0:w.bbox.x0, x1:w.bbox.x1, y0:w.bbox.y0, y1:w.bbox.y1});
+    }
+    return woerter.length ? woerterZuZeilen(woerter) : (data.text||"").split(/\r?\n/);
+  }
   finally{ await worker.terminate(); }
+}
+function woerterZuZeilen(ws){
+  const hs = ws.map(w=>w.y1-w.y0).sort((a,b)=>a-b);
+  const h = hs[Math.floor(hs.length/2)] || 20;
+  const reihen = [];
+  for(const w of [...ws].sort((a,b)=>(a.y0+a.y1)-(b.y0+b.y1))){
+    const cy = (w.y0+w.y1)/2;
+    let r = reihen.find(r=>Math.abs(r.cy-cy) < h*0.6);
+    if(!r){ r = {cy, ws:[]}; reihen.push(r); }
+    r.ws.push(w);
+    r.cy = r.ws.reduce((a,x)=>a+(x.y0+x.y1)/2, 0) / r.ws.length;
+  }
+  return reihen.sort((a,b)=>a.cy-b.cy).map(r=>{
+    r.ws.sort((a,b)=>a.x0-b.x0);
+    let s = "", ende = null;
+    for(const w of r.ws){ if(ende!==null) s += (w.x0-ende > h*1.0) ? "\t" : " "; s += w.t; ende = w.x1; }
+    return s;
+  });
 }
 async function ausBild(file){
   let c;
@@ -1511,8 +1581,9 @@ async function ausBild(file){
       ? "Fotos im iPhone-Format HEIC kann dieser Browser nicht öffnen. Auf dem iPad geht es direkt. Am Rechner: Foto als JPG schicken (z. B. per Mail oder OneDrive) oder am iPhone unter Einstellungen › Kamera › Formate „Maximale Kompatibilität“ wählen."
       : "Das Bild konnte nicht geöffnet werden.");
   }
-  imp.vorschau = c.toDataURL("image/jpeg", .85); renderImport();
-  return (await texterkennung(c)).split(/\r?\n/);
+  // Vorschau im Original (nicht das aufbereitete Graubild), damit man gut vergleichen kann
+  imp.vorschau = URL.createObjectURL(file); renderImport();
+  return await texterkennung(c);
 }
 
 /* PDF: Text auslesen, bei eingescannten PDFs Texterkennung */
@@ -1543,7 +1614,7 @@ async function ausPdf(file){
     for(let i=1;i<=n;i++){
       imp.status = "Eingescanntes PDF – Seite wird als Bild vorbereitet …"; zeigeFortschritt();
       const c = await bildAufbereiten(await mitFrist(seiteBild(i, 2.5), 30000));
-      zeilen.push(...(await texterkennung(c, n>1?`Seite ${i} von ${n}`:"")).split(/\r?\n/));
+      zeilen.push(...(await texterkennung(c, n>1?`Seite ${i} von ${n}`:"")));
     }
   }
   return zeilen;
@@ -1644,9 +1715,24 @@ function namenAusZeilen(zeilen){
     .replace(/\s+/g," ").trim();
   const istWort = w => (/^[A-ZÀ-ÖØ-ÞĀ-ŽḀ-Ỿ]/.test(w) && w.replace(/[^A-Za-zÀ-ÖØ-öø-ÿĀ-žḀ-ỿ]/g,"").length>=2) || PARTIKEL.has(w);
   const schoen = w => (w.length>2 && w===w.toUpperCase()) ? w.split("-").map(t=>t.charAt(0)+t.slice(1).toLowerCase()).join("-") : w;
+  const zerlege = roh => roh.replace(/[;|]/g,"\t").replace(/ {2,}/g,"\t").split("\t").map(saeubere).filter(Boolean);
+  const namensZellenVon = zellen => zellen.map(z=>z.replace(/,/g," ").split(" ").filter(istWort).join(" ")).filter(Boolean);
+  const istKopf = zellen => zellen.join(" ").toLowerCase().split(/[\s,]+/).some(w=>KOPF.has(w));
+
+  // Vorab: Ist das ein Sitzplan (viele Namen nebeneinander in einer Zeile) statt einer Liste?
+  let kopfDa = false; const anzahlen = [];
   for(const roh of zeilen){
     if(!roh || !roh.trim()) continue;
-    const zellen = roh.replace(/[;|]/g,"\t").replace(/ {2,}/g,"\t").split("\t").map(saeubere).filter(Boolean);
+    const z = zerlege(roh); if(!z.length) continue;
+    if(istKopf(z)){ kopfDa = true; continue; }
+    const n = namensZellenVon(z).length; if(n) anzahlen.push(n);
+  }
+  const ab4 = anzahlen.filter(n=>n>=4).length, ab3 = anzahlen.filter(n=>n>=3).length;
+  const sitzplan = !kopfDa && (ab4 >= 2 || (ab3 >= 2 && new Set(anzahlen).size > 1));
+
+  for(const roh of zeilen){
+    if(!roh || !roh.trim()) continue;
+    const zellen = zerlege(roh);
     if(!zellen.length) continue;
     const woerter = zellen.join(" ").toLowerCase().split(/[\s,]+/);
     if(woerter.some(w=>KOPF.has(w))){
@@ -1654,6 +1740,14 @@ function namenAusZeilen(zeilen){
       const iv = woerter.findIndex(w=>w.startsWith("vorname")||w==="rufname");
       const inn = woerter.findIndex(w=>w.startsWith("nachname")||w==="familienname"||w==="name");
       if(iv>=0 && inn>=0) nachnameZuerst = inn < iv;
+      continue;
+    }
+    if(sitzplan){
+      // Sitzplan: jeder Platz (jede Zelle) ist ein eigener Name – oft nur Vornamen
+      for(const z of namensZellenVon(zellen)){
+        const w = z.split(/\s+/).map(schoen);
+        if(w.length>=1 && w.length<=4 && !w.every(x=>PARTIKEL.has(x))) ergebnis.push({name:w.join(" "), offen:false});
+      }
       continue;
     }
     let name = null;
@@ -1695,9 +1789,9 @@ function namenAusZeilen(zeilen){
   }
   // Doppelte entfernen; einzelne Wörter nur, wenn es sonst kaum etwas gibt
   const voll = ergebnis.filter(e=>e.name.includes(" "));
-  const liste = (voll.length >= Math.max(2, ergebnis.length/3) ? voll : ergebnis).map(e=>e.name);
+  const liste = (sitzplan || voll.length < Math.max(2, ergebnis.length/3) ? ergebnis : voll).map(e=>e.name);
   const gesehen = new Set();
-  return {namen: liste.filter(n=>{ const k=n.toLowerCase(); if(gesehen.has(k)) return false; gesehen.add(k); return true; }), getauscht};
+  return {namen: liste.filter(n=>{ const k=n.toLowerCase(); if(gesehen.has(k)) return false; gesehen.add(k); return true; }), getauscht, sitzplan};
 }
 
 /* ---------- Tastatur ---------- */
