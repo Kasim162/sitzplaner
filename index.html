@@ -462,11 +462,46 @@ let dateiVerbunden = false;
 let dateiFehler = "";
 let schreibTimer = null;
 
+let zuletztGespeichert = null;
 function speichern(){
-  try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); }
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); zuletztGespeichert = new Date(); }
   catch(e){ toast("Achtung: Speichern im Browser hat nicht geklappt."); }
   if(datei && dateiVerbunden){ clearTimeout(schreibTimer); schreibTimer=setTimeout(schreibeDatei, 400); }
+  zeigeSpeicherstand();
 }
+// Knopf „Speichern“: sofort sichern (Browser + Speicherdatei) und bestätigen
+async function jetztSpeichern(){
+  S.gespeichert = jetzt();
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); zuletztGespeichert = new Date(); }
+  catch(e){ alert("Speichern im Browser hat nicht geklappt: "+e.message); return; }
+  if(datei && !dateiVerbunden) await dateiVerbinden();
+  if(datei && dateiVerbunden){ clearTimeout(schreibTimer); await schreibeDatei(); }
+  zeigeSpeicherstand();
+  toast(datei && dateiVerbunden ? `Gespeichert ✓ – im Programm und in „${datei.name}“` : "Gespeichert ✓ – im Programm");
+}
+function zeigeSpeicherstand(){
+  const el = $("#speicherstand"); if(!el) return;
+  el.textContent = zuletztGespeichert ? `✓ gespeichert ${zuletztGespeichert.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}` : "";
+}
+
+// Mehrere Fenster/Tabs gleichzeitig offen: immer den neuesten Stand übernehmen,
+// damit ein älteres Fenster nicht die Änderungen aus einem anderen Fenster überschreibt.
+function neuesterStandUebernehmen(roh){
+  try{
+    if(!roh) return false;
+    const d = pruefe(JSON.parse(roh));
+    if(!d.gespeichert || (S.gespeichert && d.gespeichert <= S.gespeichert)) return false;
+    S = d; sel = null; selTische = new Set(); undo = [];
+    render();
+    return true;
+  }catch(e){ console.warn(e); return false; }
+}
+window.addEventListener("storage", e=>{
+  if(e.key===LS_KEY && neuesterStandUebernehmen(e.newValue)) toast("In einem anderen Fenster wurde etwas geändert – hier ist jetzt der neueste Stand.");
+});
+const standPruefen = ()=>{ if(neuesterStandUebernehmen(localStorage.getItem(LS_KEY))) toast("Neuester Stand aus einem anderen Fenster übernommen."); };
+window.addEventListener("focus", standPruefen);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) standPruefen(); });
 async function schreibeDatei(){
   if(!datei || !dateiVerbunden) return;
   try{
@@ -491,8 +526,9 @@ async function leseDatei(h){
 async function abgleichen(){
   const d = await leseDatei(datei);
   if(d && (!S.gespeichert || (d.gespeichert && d.gespeichert > S.gespeichert))){
-    S = d; localStorage.setItem(LS_KEY, JSON.stringify(S)); undo=[];
-    toast("Daten aus der Speicherdatei geladen."); render();
+    undo.push(JSON.stringify(S));          // mit „Rückgängig“ kommt man zum vorherigen Stand zurück
+    S = d; localStorage.setItem(LS_KEY, JSON.stringify(S));
+    toast("Neuerer Stand aus der Speicherdatei geladen. (Rückgängig holt den vorherigen zurück.)"); render();
   } else {
     await schreibeDatei();
   }
@@ -678,18 +714,21 @@ function htmlKlasse(k){
     </div>
     <div class="cols">
       <section class="card">
-        <h2>Sitzpläne (${k.plaene.length})</h2>
+        <h2>Gespeicherte Sitzpläne (${k.plaene.length})</h2>
+        ${plaene.length ? `<p class="hint" style="margin-top:-6px">Zum Weiterarbeiten auf <b>„Öffnen“</b> klicken – deine Sitzordnung ist dort gespeichert.</p>` : ""}
         ${plaene.length ? plaene.map(p=>{
           const n = Object.keys(p.sitze).length;
+          const zeit = p.geaendert ? new Date(p.geaendert).toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"}) : "";
           return `<div class="planitem">
-            <div><div class="t">${esc(p.titel)}</div>
-              <div class="m">${planArt(p)}${p.raum && mitRaum(p)?` · Raum ${esc(p.raum)}`:""} · ${n} von ${k.schueler.length} sitzen · geändert ${datum(p.geaendert)}</div></div>
+            <div style="cursor:pointer" data-a="plan-oeffnen" data-id="${p.id}"><div class="t">${esc(p.titel)}</div>
+              <div class="m">${planArt(p)}${p.raum && mitRaum(p)?` · Raum ${esc(p.raum)}`:""} · ${n} von ${k.schueler.length} sitzen · geändert ${zeit}</div></div>
             <div class="b">
               <button class="primary small" data-a="plan-oeffnen" data-id="${p.id}">Öffnen</button>
               <button class="small" data-a="plan-kopie" data-id="${p.id}" title="Kopie anlegen">Kopie</button>
               <button class="small danger" data-a="plan-loeschen" data-id="${p.id}" title="Löschen">✕</button>
             </div></div>`;}).join("") : `<p class="hint">Noch kein Sitzplan.</p>`}
-        <form id="neuplan" class="row" style="margin-top:14px;align-items:flex-end">
+        <h3 style="margin-top:18px">Neuen Sitzplan anlegen</h3>
+        <form id="neuplan" class="row" style="align-items:flex-end">
           <label class="f">Vorlage<select name="typ">
             <optgroup label="Feste Vorlagen">
               <option value="klassenraum">Klassenraum (4 Reihen, 32 Plätze)</option>
@@ -825,7 +864,9 @@ function htmlPlan(k,p){
       </div>
       <div class="sep"></div>
       <div class="grp">
-        <button class="primary" data-a="drucken">Drucken / PDF</button>
+        <button class="primary" data-a="speichern" title="Sitzplan jetzt speichern">💾 Speichern</button>
+        <span class="hint" id="speicherstand" style="align-self:center;color:var(--ok)"></span>
+        <button data-a="drucken">Drucken / PDF</button>
         <button data-a="plan-kopie" data-id="${p.id}">Kopie anlegen</button>
         <button class="danger" data-a="plan-loeschen" data-id="${p.id}">Löschen</button>
       </div>
@@ -888,6 +929,7 @@ function htmlTischPalette(p){
 }
 
 function nachPlanRender(){
+  zeigeSpeicherstand();
   const wrap = $("#sheetwrap"), sheet = $("#sheet"), sizer = $("#sheetsizer");
   if(!wrap || !sheet || !sizer) return;
   sheet.style.transform = "none";
@@ -1171,6 +1213,7 @@ document.addEventListener("click", e=>{
         break; }
       case "rueckgaengig": rueckgaengig(); break;
       case "import": importOeffnen(); break;
+      case "speichern": jetztSpeichern(); break;
       case "modus": freiModus = id; sel = null; if(id==="setzen") selTische = new Set(); renderMain(); break;
       case "umwandeln": umwandeln(); break;
       case "tisch-neu": tischNeu(id); break;
@@ -1241,6 +1284,7 @@ document.addEventListener("submit", e=>{
     schuelerDazu(k, zeilen);
   }
   if(f.id==="neuplan"){
+    if(k.plaene.length && !confirm(`Klasse ${k.name} hat schon ${k.plaene.length>1 ? `${k.plaene.length} gespeicherte Sitzpläne` : "einen gespeicherten Sitzplan"}.\n\nWirklich einen NEUEN, leeren Sitzplan anlegen?\n\n(Einen vorhandenen öffnest du oben mit „Öffnen“.)`)) return;
     const wahl = f.typ.value;
     const frei_ = wahl.startsWith("frei-"), art = wahl.slice(5);
     const typ = frei_ ? "frei" : wahl;
