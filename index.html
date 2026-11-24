@@ -911,9 +911,15 @@ function htmlPlan(k,p){
     <div class="planbody">
       <div class="sheetwrap" id="sheetwrap"><div class="sheetsizer" id="sheetsizer">${htmlBlatt(k,p)}</div></div>
       ${edit ? htmlTischPalette(p) : `<aside class="pool" id="pool">
-        ${sel && sel.typ==="platz" && p.sitze[sel.id] ? `<div class="platzwahl">
-          <b>${esc(anzeigeName(k,p,p.sitze[sel.id]))}</b>
-          <div class="row"><button data-a="platz-leeren" data-id="${sel.id}">Platz leeren</button><button class="flach" data-a="auswahl-weg">Abbrechen</button></div></div>` : ""}
+        ${(()=>{ // angetippter Schüler (auf einem Platz oder ohne Platz): Platz leeren, umbenennen, löschen
+          const sid = sel && (sel.typ==="platz" ? p.sitze[sel.id] : sel.typ==="schueler" ? sel.id : null);
+          const s = sid && k.schueler.find(x=>x.id===sid); if(!s) return "";
+          return `<div class="platzwahl">
+          <b>${esc(s.name)}</b>
+          <div class="row">${sel.typ==="platz"?`<button data-a="platz-leeren" data-id="${sel.id}">Platz leeren</button>`:""}
+            <button data-a="schueler-umbenennen" data-id="${s.id}">✎ Umbenennen</button>
+            <button class="danger" data-a="schueler-entfernen" data-id="${s.id}">Aus Klasse löschen</button>
+            <button class="flach" data-a="auswahl-weg">Abbrechen</button></div></div>`; })()}
         <h3>Ohne Platz <span class="zahl">${frei.length}</span></h3>
         <div class="chips">${frei.length ? frei.map(s=>`<button class="chip ${sel&&sel.typ==="schueler"&&sel.id===s.id?"sel":""}" data-drag="schueler:${s.id}" data-a="chip" data-id="${s.id}">${esc(s.name)}</button>`).join("")
           : `<p class="hint">${k.schueler.length?"Alle haben einen Platz.":"Noch keine Schüler."}</p>`}</div>
@@ -1237,6 +1243,7 @@ document.addEventListener("click", e=>{
         const s = k.schueler.find(x=>x.id===id);
         const inPl = k.plaene.filter(p=>Object.values(p.sitze).includes(id)).length;
         if(confirm(`„${s.name}“ aus der Klasse entfernen?${inPl?` Der Platz in ${inPl} Sitzplan/-plänen wird dann frei.`:""}`)){
+          sel = null;
           aendern(()=>{
             k.schueler = k.schueler.filter(x=>x.id!==id);
             k.plaene.forEach(p=>{ for(const [pl,sid] of Object.entries(p.sitze)) if(sid===id){ delete p.sitze[pl]; p.geaendert=jetzt(); } });
