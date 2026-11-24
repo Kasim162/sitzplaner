@@ -1227,7 +1227,12 @@ document.addEventListener("click", e=>{
     const a = t.dataset.a, id = t.dataset.id;
     const k = K(view.klasseId);
     switch(a){
-      case "klasse": zeige({name:"klasse", klasseId:id}); break;
+      case "klasse": {   // Hat die Klasse schon einen Sitzplan, gleich den zuletzt bearbeiteten zeigen
+        const kl = K(id);
+        const zuletzt = kl && [...kl.plaene].sort((a,b)=>(b.geaendert||"").localeCompare(a.geaendert||""))[0];
+        if(zuletzt) zeige({name:"plan", klasseId:id, planId:zuletzt.id}, "setzen");
+        else zeige({name:"klasse", klasseId:id});
+        break; }
       case "zurueck": zeige({name:"klasse", klasseId:view.klasseId}); break;
       case "klasse-umbenennen": {
         const n = prompt("Neuer Name der Klasse:", k.name); if(n && n.trim()) aendern(()=>{ k.name=n.trim(); }); break; }
