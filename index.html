@@ -364,7 +364,8 @@ const SW = 30, SH = 18;           // ein Platz: 30 mm breit, 18 mm hoch
 const PULT_W = 55, PULT_H = 10;
 const tid = () => "t" + Math.random().toString(36).slice(2,9);
 const pultStart = () => ({x:(FL_W-PULT_W)/2, y:FL_H-PULT_H-2});
-const tischGroesse = t => t.richtung==="laengs" ? [SW, t.n*SH] : [t.n*SW, SH];
+const platzB = t => t.b || SW;     // Platzbreite (bei „3 Reihen“ schmaler, damit 10 Plätze nebeneinander passen)
+const tischGroesse = t => t.richtung==="laengs" ? [platzB(t), t.n*SH] : [t.n*platzB(t), SH];
 const sitzId = (t,i) => `${t.id}-${i}`;
 
 // Aus einer festen Vorlage Tische machen (Zweiertische bleiben zusammen)
@@ -397,7 +398,22 @@ function gruppenStart(){
   }
   return tische;
 }
+function dreiReihenStart(){
+  // 3 Reihen zu je 10 Plätzen: links 2 Zweiertische aneinander, Mitte 2 aneinander, rechts 1 Zweiertisch
+  const b = 23.5, rand = 5, gang = (FL_W - 2*rand - 10*b) / 2;
+  const tische = [];
+  for(let r=0;r<3;r++){
+    const y = 14 + r*(SH+30);
+    let x = rand;
+    for(const block of [2,2,1]){
+      for(let i=0;i<block;i++){ tische.push({id:tid(), x:+x.toFixed(1), y, n:2, b, richtung:"quer"}); x += 2*b; }
+      x += gang;
+    }
+  }
+  return tische;
+}
 function startTische(art){
+  if(art==="dreireihen") return dreiReihenStart();
   if(art==="reihen") return vorlageZuTischen("klassenraum").tische;
   if(art==="physik") return vorlageZuTischen("physikraum").tische;
   if(art==="gruppen") return gruppenStart();
@@ -421,7 +437,8 @@ function plaetzeVonVorne(p){
   }
   const px = p.pult.x+PULT_W/2, py = p.pult.y+PULT_H/2, baender = {};
   for(const t of p.tische) for(let i=0;i<t.n;i++){
-    const cx = t.richtung==="laengs" ? t.x+SW/2 : t.x+i*SW+SW/2;
+    const B = platzB(t);
+    const cx = t.richtung==="laengs" ? t.x+B/2 : t.x+i*B+B/2;
     const cy = t.richtung==="laengs" ? t.y+i*SH+SH/2 : t.y+SH/2;
     const b = Math.floor(Math.hypot(cx-px, cy-py)/35);
     (baender[b] ||= []).push(sitzId(t,i));
@@ -459,7 +476,8 @@ function pruefe(d){
       p.id ||= uid(); p.typ = (LAYOUTS[p.typ] || p.typ==="frei") ? p.typ : "klassenraum"; p.sitze ||= {};
       if(istFrei(p)){
         p.tische = Array.isArray(p.tische) ? p.tische.filter(t=>t && t.id && t.n>0) : [];
-        p.tische.forEach(t=>{ t.x=+t.x||0; t.y=+t.y||0; t.n=Math.min(6,Math.max(1,+t.n||1)); t.richtung = t.richtung==="laengs"?"laengs":"quer"; });
+        p.tische.forEach(t=>{ t.x=+t.x||0; t.y=+t.y||0; t.n=Math.min(6,Math.max(1,+t.n||1)); t.richtung = t.richtung==="laengs"?"laengs":"quer";
+          if(t.b!==undefined){ t.b = +t.b; if(!(t.b>=15 && t.b<=40)) delete t.b; } });
         p.pult ||= pultStart(); p.pultOben = false;
       }
       p.anzeige ||= "voll"; p.pultOben = !!p.pultOben; p.raum ??= ""; p.titel ||= planArt(p);
@@ -762,6 +780,7 @@ function htmlKlasse(k){
           <label class="f">Vorlage<select name="typ">
               <option value="klassenraum">Reihen</option>
               <option value="physikraum">U-Form (Physikraum)</option>
+              <option value="frei-dreireihen">3 Reihen (je 10 Plätze)</option>
               <option value="frei-gruppen">Offen – Tische selbst schieben</option></select></label>
           <label class="f">Name<input name="titel" placeholder="z. B. Mathe" style="width:150px"></label>
           <input type="hidden" name="raum" value="">
@@ -824,7 +843,7 @@ function htmlBlattFrei(k,p){
       const rahmen = laengs
         ? `border-left:${S1};border-right:${S1};border-top:${erst?S1:D1};border-bottom:${letzt?S1:"none"}`
         : `border-top:${S1};border-bottom:${S1};border-left:${erst?S1:D1};border-right:${letzt?S1:"none"}`;
-      return htmlSitz(k,p,sitzId(t,i),`width:${SW}mm;height:${SH}mm;${rahmen}`,!edit);
+      return htmlSitz(k,p,sitzId(t,i),`width:${platzB(t)}mm;height:${SH}mm;${rahmen}`,!edit);
     }).join("");
     return `<div class="tisch ${selTische.has(t.id)?"tsel":""}" data-tisch="${t.id}" style="left:${t.x}mm;top:${t.y}mm;flex-direction:${laengs?"column":"row"}">${plaetze}</div>`;
   }).join("");
@@ -898,7 +917,10 @@ function htmlPlan(k,p){
         <h3>Ohne Platz <span class="zahl">${frei.length}</span></h3>
         <div class="chips">${frei.length ? frei.map(s=>`<button class="chip ${sel&&sel.typ==="schueler"&&sel.id===s.id?"sel":""}" data-drag="schueler:${s.id}" data-a="chip" data-id="${s.id}">${esc(s.name)}</button>`).join("")
           : `<p class="hint">${k.schueler.length?"Alle haben einen Platz.":"Noch keine Schüler."}</p>`}</div>
-        ${frei.length?`<button class="flach klein" data-a="zufall-auffuellen" title="Die Schüler ohne Platz zufällig verteilen">Zufällig verteilen</button>`:""}
+        <div class="row">
+          ${frei.length?`<button class="flach klein" data-a="zufall-auffuellen" title="Die Schüler ohne Platz zufällig verteilen">Zufällig verteilen</button>`:""}
+          <button class="flach klein" data-a="einzelplatz" title="Einen einzelnen Platz hinzufügen und an die gewünschte Stelle ziehen">+ Einzelplatz</button>
+        </div>
         ${!k.schueler.length?`<button class="primary" data-a="import" style="width:100%">📷 Klassenliste einlesen</button>`:""}
         <form id="poolneu" class="addpool"><input name="name" placeholder="Schüler hinzufügen" autocomplete="off"><button type="submit">+</button></form>
         <p class="hint leise">${Object.keys(p.sitze).length} von ${plaetze} Plätzen belegt · Namen ziehen oder antippen</p>
@@ -933,6 +955,7 @@ function htmlTischPalette(p){
       <div class="row" style="margin-top:6px">
         <button class="small" data-a="tisch-start" data-id="reihen">Reihen</button>
         <button class="small" data-a="tisch-start" data-id="physik">U-Form</button>
+        <button class="small" data-a="tisch-start" data-id="dreireihen">3 Reihen</button>
         <button class="small" data-a="tisch-start" data-id="gruppen">Gruppen</button>
         <button class="small" data-a="tisch-start" data-id="leer">Leer</button>
       </div></details>
@@ -1010,14 +1033,24 @@ function objekte(p){
           {id:"PULT", x:p.pult.x, y:p.pult.y, w:PULT_W, h:PULT_H, ref:p.pult}];
 }
 function freierPlatz(p, w, h){
-  const obj = objekte(p), rand = 4;
-  const frei = (x,y) => obj.every(o => x+w+rand <= o.x || o.x+o.w+rand <= x || y+h+rand <= o.y || o.y+o.h+rand <= y);
-  for(let y=4; y<=FL_H-h; y+=5) for(let x=4; x<=FL_W-w; x+=5) if(frei(x,y)) return [x,y];
+  const obj = objekte(p);
+  for(const rand of [4,1]){   // erst mit Abstand suchen, sonst auch knapp daneben
+    const frei = (x,y) => obj.every(o => x+w+rand <= o.x || o.x+o.w+rand <= x || y+h+rand <= o.y || o.y+o.h+rand <= y);
+    for(let y=rand; y<=FL_H-h; y+=2.5) for(let x=rand; x<=FL_W-w; x+=2.5) if(frei(x,y)) return [x,y];
+  }
   return [4,4];
 }
-function umwandeln(){
+// Einzelplatz: geht bei jeder Vorlage. Feste Vorlagen werden dafür still in verschiebbare Tische umgewandelt.
+function einzelplatz(){
+  const [,p] = aktPlan(); if(!p) return;
+  if(!istFrei(p)) umwandeln(true);
+  freiModus = "anordnen"; sel = null;
+  tischNeu("1");
+  toast("Einzelplatz ist da – jetzt an die gewünschte Stelle ziehen, dann „Fertig“.");
+}
+function umwandeln(still){
   const [,p] = aktPlan(); if(!p || istFrei(p)) return;
-  if(!confirm("Diesen Sitzplan in einen frei verschiebbaren Plan umwandeln?\n\nDie Sitzordnung bleibt erhalten. Danach kannst du alle Tische mit der Maus verschieben, drehen, löschen und neue hinzufügen.")) return;
+  if(!still && !confirm("Diesen Sitzplan in einen frei verschiebbaren Plan umwandeln?\n\nDie Sitzordnung bleibt erhalten. Danach kannst du alle Tische mit der Maus verschieben, drehen, löschen und neue hinzufügen.")) return;
   aendern(()=>{
     const {tische, map} = vorlageZuTischen(p.typ);
     const neu = {};
@@ -1025,7 +1058,9 @@ function umwandeln(){
     if(p.typ==="physikraum" && !p.raum) p.raum = "Physikraum";
     p.typ = "frei"; p.tische = tische; p.pult = pultStart(); p.sitze = neu; p.pultOben = false; p.geaendert = jetzt();
   }, {ohneRender:true});
-  freiModus = "anordnen"; selTische = new Set(); render();
+  freiModus = "anordnen"; selTische = new Set();
+  if(still) return;
+  render();
   toast("Jetzt kannst du die Tische verschieben.");
 }
 function tischNeu(art){
@@ -1233,6 +1268,7 @@ document.addEventListener("click", e=>{
       case "speichern": jetztSpeichern(); break;
       case "modus": freiModus = id; sel = null; if(id==="setzen") selTische = new Set(); renderMain(); break;
       case "umwandeln": umwandeln(); break;
+      case "einzelplatz": einzelplatz(); break;
       case "tisch-neu": tischNeu(id); break;
       case "tisch-drehen": tischeDrehen(); break;
       case "tisch-kopie": tischeKopieren(); break;
@@ -1305,7 +1341,7 @@ document.addEventListener("submit", e=>{
     const wahl = f.typ.value;
     const frei_ = wahl.startsWith("frei-"), art = wahl.slice(5);
     const typ = frei_ ? "frei" : wahl;
-    const standardTitel = frei_ ? "Offen" : LAYOUTS[typ].name;
+    const standardTitel = frei_ ? (art==="dreireihen" ? "3 Reihen" : "Offen") : LAYOUTS[typ].name;
     const p = {id:uid(), typ, titel:f.titel.value.trim()||standardTitel,
                raum:(wahl==="physikraum"||art==="physik")?"Physikraum":f.raum.value.trim(),
                anzeige:"voll", pultOben:false, sitze:{}, erstellt:jetzt(), geaendert:jetzt()};
