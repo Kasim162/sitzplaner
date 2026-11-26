@@ -598,17 +598,29 @@ async function abgleichen(){
   }
 }
 let verbindeLaeuft = false;
-async function dateiVerbinden(){
-  if(verbindeLaeuft || !datei || dateiVerbunden) return;
+let leiseLaeuft = false;   // die automatische Frage beim ersten Klick – sie kann hängen bleiben, wenn Chrome sie nicht zeigt
+async function dateiVerbinden(still){
+  if(!datei || dateiVerbunden) return;
+  if(still){ if(verbindeLaeuft || leiseLaeuft) return; leiseLaeuft = true;
+    try{ if(await datei.requestPermission({mode:"readwrite"})==="granted" && !dateiVerbunden){ dateiVerbunden=true; dateiFehler=""; await abgleichen(); toast("Speicherdatei verbunden."); } }
+    catch(e){ console.warn(e); }
+    finally{ leiseLaeuft = false; renderSpeicher(); }
+    return;
+  }
+  // Der Knopf wartet NICHT auf eine hängende automatische Frage.
+  // Chrome zeigt die Erlaubnis-Frage bei per Doppelklick geöffneten Dateien oft gar nicht an.
+  // Darum: die Speicherdatei im Speichern-Fenster einmal bestätigen – damit ist das Schreiben sicher erlaubt.
+  // Überschrieben wird dabei nichts: erst wird die Datei gelesen, die neuere Fassung gewinnt.
+  if(verbindeLaeuft) return;
   verbindeLaeuft = true;
   try{
-    // direkt fragen (der Browser erlaubt das nur unmittelbar nach einem Klick)
-    const p = await datei.requestPermission({mode:"readwrite"});
-    if(p!=="granted"){ toast("Kein Zugriff auf die Datei erlaubt – gespeichert wird vorerst nur im Browser."); return; }
-    dateiVerbunden = true; dateiFehler = "";
+    let h;
+    try{ h = await showSaveFilePicker({suggestedName:datei.name, startIn:datei, types:jsonTyp}); }
+    catch(e){ if(e.name==="AbortError"){ toast("Abgebrochen – gespeichert wird weiter im Browser."); return; } throw e; }
+    datei = h; dateiVerbunden = true; dateiFehler = ""; await idbSet("datei", h);
     await abgleichen();
     toast("Speicherdatei verbunden – es wird wieder automatisch gespeichert.");
-  }catch(e){ console.error(e); dateiFehler="Die Datei konnte nicht geöffnet werden (verschoben oder gelöscht?)."; dateiVerbunden=false; }
+  }catch(e){ console.error(e); dateiFehler="Die Datei konnte nicht verbunden werden."; dateiVerbunden=false; toast(dateiFehler); }
   finally{ verbindeLaeuft = false; renderSpeicher(); }
 }
 // Nach einem Browser-Neustart beim ersten Klick irgendwo im Programm von selbst nach der Erlaubnis fragen
@@ -617,7 +629,7 @@ document.addEventListener("click", e=>{
   if(erlaubnisGefragt || !fsOk || !datei || dateiVerbunden) return;
   if(e.target.closest("#speicher, #modal")) return;      // dort hat der Klick eine eigene Aufgabe (z. B. andere Datei wählen)
   erlaubnisGefragt = true;
-  dateiVerbinden();
+  dateiVerbinden(true);
 }, true);
 const jsonTyp = [{description:"Sitzplaner-Daten", accept:{"application/json":[".json"]}}];
 async function neueDatei(){
@@ -711,8 +723,8 @@ function renderSpeicher(){
     stand = `<div class="st ok" title="Jede Änderung wird automatisch in ${esc(datei.name)} gespeichert">✓ Speichert in ${esc(datei.name)}</div>`;
     weitere = `<button data-a="datei-oeffnen">Andere Speicherdatei …</button>`;
   } else if(fsOk && datei){
-    stand = `<div class="st warn" title="${esc(dateiFehler||"Nach einem Browser-Neustart muss das Schreiben in die Datei einmal erlaubt werden.")}">Speicherdatei nicht verbunden</div>`;
-    haupt = `<button class="hl" data-a="datei-verbinden">Verbinden</button>`;
+    stand = `<div class="st warn" title="${esc(dateiFehler||"Nach einem Neustart von Chrome muss das Schreiben in die Datei einmal erlaubt werden. Deine Daten sind trotzdem im Browser gespeichert.")}">Speichert gerade nur im Browser</div>`;
+    haupt = `<button class="hl" data-a="datei-verbinden" title="Danach ${esc(datei.name)} auswählen, falls Chrome danach fragt">Speicherdatei verbinden</button>`;
     weitere = `<button data-a="datei-oeffnen">Andere Datei öffnen …</button>`;
   } else if(fsOk){
     stand = `<div class="st warn">Nur im Browser gespeichert</div>`;
